@@ -21,6 +21,11 @@ namespace Cosmos.Timeline.Playback
         // 리소스 프로바이더
         private IResourceProvider resourceProvider;
 
+        // ===== Battle 모드 추가 =====
+        private bool isBattleMode = false;
+        private BattleActor battleActor = null;
+
+
         // 활성 이펙트 관리
         private Dictionary<string, List<GameObject>> activeEffects = new Dictionary<string, List<GameObject>>();
         private Dictionary<string, Coroutine> effectCoroutines = new Dictionary<string, Coroutine>();
@@ -33,6 +38,13 @@ namespace Cosmos.Timeline.Playback
         public event Action<TimelineDataSO.ITimelineEvent> OnEventTriggered;
         public event Action<TimelineDataSO.ITimelineEvent> OnEventCompleted;
 
+
+        // 클래스 필드에 추가
+        private RuntimeAnimatorController genericController;
+        private AnimatorOverrideController overrideController;
+        private Dictionary<string, AnimationClip> clipCache = new Dictionary<string, AnimationClip>();
+
+
         // 설정
         [SerializeField] private bool debugMode = true;
 
@@ -44,6 +56,33 @@ namespace Cosmos.Timeline.Playback
         {
             Initialize();
         }
+        #region Battle Mode Initialization (새로 추가)
+
+        /// <summary>
+        /// Battle 모드로 초기화
+        /// </summary>
+        public void InitializeForBattle(BattleActor actor)
+        {
+            if (actor == null) return;
+
+            battleActor = actor;
+            isBattleMode = true;
+
+            // Battle 모드에서는 BattleActor의 컴포넌트 사용
+            targetObject = actor.gameObject;
+            targetTransform = actor.transform;
+            targetAnimator = actor.GetComponent<Animator>();
+
+            // Battle에서는 AddressableResourceProvider 대신 null 사용
+            // (BattleEffectManager가 처리)
+            resourceProvider = null;
+
+            if (debugMode)
+                Debug.Log($"[TimelineEventHandler] Initialized for Battle: {actor.name}");
+        }
+
+        #endregion
+
 
         private void Initialize()
         {
@@ -147,11 +186,6 @@ namespace Cosmos.Timeline.Playback
                     Debug.Log($"[EventHandler] Animation played: {animEvent.animationStateName}");
             }
         }
-
-        // 클래스 필드에 추가
-        private RuntimeAnimatorController genericController;
-        private AnimatorOverrideController overrideController;
-        private Dictionary<string, AnimationClip> clipCache = new Dictionary<string, AnimationClip>();
 
 
         // Awake나 Initialize에서 로드

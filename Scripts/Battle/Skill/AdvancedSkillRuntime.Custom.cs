@@ -17,7 +17,7 @@ public class ReflectInstance
 }
 
 
-public partial class AdvancedSkillRuntime : MonoBehaviour
+public partial class AdvancedSkillRuntime : IObserver
 {
     // Reflectインスタンス管理用
     private Dictionary<BattleActor, List<ReflectInstance>> activeReflects = new Dictionary<BattleActor, List<ReflectInstance>>();

@@ -43,7 +43,9 @@ public enum BattleEventType
     BreakOccurred,
     ChainStart,
     ChainEnd,
-    SpecialMoveTriggered
+    SpecialMoveTriggered,
+
+    TimelineCustom
 }
 
 // 이벤트 데이터 기본 클래스
@@ -141,4 +143,18 @@ public class HealEventData : BattleEventData
     public bool WasOverheal { get; set; }
 
     public HealEventData(BattleEventType type) : base(type) { }
+}
+
+
+
+/// <summary>
+/// Timeline 커스텀 이벤트 데이터
+/// </summary>
+public class TimelineCustomEventData : BattleEventData
+{
+    public string EventName { get; set; }
+    public BattleActor Actor { get; set; }
+    public Dictionary<string, object> Parameters { get; set; }
+
+    public TimelineCustomEventData() : base(BattleEventType.TimelineCustom) { }
 }

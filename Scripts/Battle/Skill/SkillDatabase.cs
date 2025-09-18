@@ -16,6 +16,8 @@ namespace SkillSystem
     [System.Serializable]
     public class AdvancedSkillDatabase
     {
+        public static SkillDatabaseAsset skillDatabaseAsset = null;
+
         [SerializeField]
         private List<AdvancedSkillData> skills = new List<AdvancedSkillData>();
 
@@ -273,15 +275,21 @@ namespace SkillSystem
         // =====================================================
 
 #if UNITY_EDITOR
-        public static AdvancedSkillDatabase Load()
+        public static AdvancedSkillDatabase Load( bool reload = true )
         {
-            var asset = AssetDatabase.LoadAssetAtPath<SkillDatabaseAsset>(SAVE_PATH);
+            if (reload == false)
+            {
+                if (skillDatabaseAsset != null)
+                    return skillDatabaseAsset.database;
+            }
 
-            if (asset == null)
+            skillDatabaseAsset = AssetDatabase.LoadAssetAtPath<SkillDatabaseAsset>(SAVE_PATH);
+
+            if (skillDatabaseAsset == null)
             {
                 // 새 데이터베이스 생성
-                asset = ScriptableObject.CreateInstance<SkillDatabaseAsset>();
-                asset.database = new AdvancedSkillDatabase();
+                skillDatabaseAsset = ScriptableObject.CreateInstance<SkillDatabaseAsset>();
+                skillDatabaseAsset.database = new AdvancedSkillDatabase();
 
                 // 디렉토리 생성
                 string directory = System.IO.Path.GetDirectoryName(SAVE_PATH);
@@ -290,13 +298,13 @@ namespace SkillSystem
                     System.IO.Directory.CreateDirectory(directory);
                 }
 
-                AssetDatabase.CreateAsset(asset, SAVE_PATH);
+                AssetDatabase.CreateAsset(skillDatabaseAsset, SAVE_PATH);
                 AssetDatabase.SaveAssets();
 
                 Debug.Log($"새 스킬 데이터베이스 생성: {SAVE_PATH}");
             }
 
-            return asset.database;
+            return skillDatabaseAsset.database;
         }
 
         public void Save()

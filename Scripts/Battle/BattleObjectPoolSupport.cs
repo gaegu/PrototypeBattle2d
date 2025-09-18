@@ -178,6 +178,11 @@ public class BattleObjectPoolSupport : MonoBehaviour
         if (battleActor != null)
         {
             battleActor.SetBattleActorInfo(battleCharInfo);
+
+            if (battleCharInfo.IsMonster == false)
+                await battleCharInfo.LoadCharacterDataAsync();
+            else
+                await battleCharInfo.LoadMonsterDataAsync();
         }
 
         return battleActor;

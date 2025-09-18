@@ -36,16 +36,6 @@ public partial class BattleActor : MonoBehaviour
     }
 
 
-    /// <summary>
-    /// BattleActor 초기화 시 호출
-    /// </summary>
-    private void InitializeBattleActor()
-    {
-        // 이펙트 ID 초기화 자동 호출
-        InitializeEffectIds();
-
-        InitializeSkillSystem();
-    }
 
     /// <summary>
     /// 이펙트 ID 초기화
@@ -198,45 +188,6 @@ public partial class BattleActor : MonoBehaviour
                 }
             }
         }
-    }
-
-
-    /// <summary>
-    /// 스킬 수행 (이펙트 시스템 통합)
-    /// </summary>
-    public async UniTask PerformSkill()
-    {
-        SetAnimation(BattleActorAnimation.Skill);
-
-        // 스킬 이펙트 재생
-
-        string effectId = GetEffectId(BattleActorEffectType.Skill1);
-        BattleActor target = GetCurrentTarget();
-
-        await BattleEffectManager.Instance.PlayEffect(
-            effectId,
-            this,
-            target,
-            OnSkillHit
-        );
-
-
-        SetAnimation(BattleActorAnimation.Idle);
-    }
-
-
-    public void PerformDeath()
-    {
-
-        // 사망 애니메이션 재생 (기존 코드에 있다면)
-        SetAnimation(BattleActorAnimation.Dead);
-
-        // 사망 이벤트 발생
-        var deathEvent = new StatusEventData(BattleEventType.CharacterDeath)
-        {
-            Actor = this
-        };
-        BattleEventManager.Instance?.TriggerEvent(BattleEventType.CharacterDeath, deathEvent);
     }
 
 

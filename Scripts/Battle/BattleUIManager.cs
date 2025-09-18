@@ -368,6 +368,8 @@ public class BattleUIManager : MonoBehaviour
     private void OnSkillButtonClick()
     {
 
+        Debug.LogError("^%^%$^%$^$%^%");
+
         // 스킬 패널이 없으면 기본 스킬 실행
         OnCommandButtonClick("skill");
      
@@ -564,7 +566,6 @@ public class BattleUIManager : MonoBehaviour
         var info = actor.BattleActorInfo;
         if (info == null) return;
 
-        // MP가 부족하면 스킬 버튼 비활성화
         if ( actor.SkillManager.GetActiveSkillCount() > 0 )
         {
             skillButton.gameObject.SetActive(true);

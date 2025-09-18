@@ -54,6 +54,29 @@ public class BattleSkillManager
     #region Main API - Skill Application
 
     /// <summary>
+    /// 테스트용 스킬 직접 추가 메서드
+    /// </summary>
+    public void AddSkill(AdvancedSkillData skillData)
+    {
+        if (skillData == null || owner == null) return;
+
+        // 스킬 런타임 생성
+        var skillRuntime = AdvancedSkillFactory.CreateSkill(skillData);
+       // if (skillRuntime == null) return;
+
+        // 초기화
+        skillRuntime.Initialize(owner, owner, skillData);
+
+        // 액티브 스킬로 등록
+        RegisterSkill(skillRuntime);
+
+        Debug.Log($"[Test] Added skill: {skillData.skillName}");
+    }
+
+
+
+
+    /// <summary>
     /// 스킬 적용 - 메인 메서드
     /// </summary>
     public void ApplySkill(AdvancedSkillData skillData, BattleActor sender, BattleActor receiver)
@@ -1066,37 +1089,10 @@ public class BattleSkillManager
     public Dictionary<SkillSystem.StatusType, List<AdvancedSkillRuntime>> EditorSkillsByType => skillsByStatusType;
     public Dictionary<EffectGroupType, List<AdvancedSkillRuntime>> EditorSkillsByGroup => skillsByGroup;
 
-
-    /// <summary>
-    /// 테스트용 스킬 직접 추가 메서드
-    /// </summary>
-    public void AddSkillForTest(AdvancedSkillData skillData)
-    {
-        if (skillData == null || owner == null) return;
-
-        // 스킬 런타임 생성
-        var skillRuntime = AdvancedSkillFactory.CreateSkill(skillData);
-        if (skillRuntime == null) return;
-
-        // 초기화
-        skillRuntime.Initialize(owner, owner, skillData);
-
-        // 액티브 스킬로 등록
-        RegisterSkill(skillRuntime);
-
-        Debug.Log($"[Test] Added skill: {skillData.skillName}");
-    }
-
-    /// <summary>
-    /// RegisterSkill을 public으로 노출 (테스트용)
-    /// </summary>
-    public void RegisterSkillForTest(AdvancedSkillRuntime skill)
-    {
-        RegisterSkill(skill);
-    }
-
-
-
 #endif
+
+
+
+
     #endregion
 }

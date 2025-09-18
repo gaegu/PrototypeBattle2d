@@ -15,6 +15,12 @@ public class UseSkillCommand : IBattleCommand
     protected AdvancedSkillData skillData;
     protected List<BattleActor> targets;
 
+
+    // Timeline 관련 추가
+    public bool UseTimeline { get; set; } = true;
+    public float TimelineSpeed { get; set; } = 1f;
+
+
     /// <summary>
     /// 새로운 스킬 데이터 기반 생성자
     /// </summary>
@@ -46,12 +52,6 @@ public class UseSkillCommand : IBattleCommand
             return false;
         }
 
-        // MP 체크
-        /* if (context.Actor.BattleActorInfo.Mp < skillData.manaCost)
-         {
-             Debug.Log($"[UseSkillCommand] Not enough MP. Need: {skillData.manaCost}, Have: {context.Actor.BattleActorInfo.Mp}");
-             return false;
-         }*/
 
         // 쿨다운 체크
         if (context.Actor.CooldownManager != null)
@@ -63,8 +63,6 @@ public class UseSkillCommand : IBattleCommand
                 return false;
             }
         }
-
-
 
         // 침묵 체크
         if (context.Actor.SkillManager != null)
@@ -83,9 +81,6 @@ public class UseSkillCommand : IBattleCommand
             }
         }
 
-        // 쿨다운 체크 (구현 필요시)
-        // if (IsOnCooldown(skillData.skillId))
-        //     return false;
 
         return true;
     }
@@ -95,10 +90,11 @@ public class UseSkillCommand : IBattleCommand
         var result = new CommandResult(true, $"Skill {skillData.skillName} executed");
         result.Effects.Add($"Used {skillData.skillName}");
 
+
+        Debug.LogError("^^%$^%$^%$^%$$^%");
+
         try
         {
-            // MP 소모
-            //  context.Actor.BattleActorInfo.UseMP(skillData.manaCost);
 
             // 쿨다운 시작
             if (context.Actor.CooldownManager != null && skillData.cooldown > 0)
@@ -108,24 +104,19 @@ public class UseSkillCommand : IBattleCommand
             }
 
 
-
-            // 스킬 효과 적용
-            ApplySkillEffects(context.Actor);
-
-            // 스킬 애니메이션 재생
-            await PlaySkillAnimation(context.Actor, cancellationToken);
-
-            // 성공 로그
-            Debug.Log($"[UseSkillCommand] {context.Actor.name} used {skillData.skillName}");
-
-            // 결과에 효과 정보 추가
-            foreach (var effect in skillData.effects)
+            // Timeline 체크
+            if (UseTimeline && context.Actor.CanPlayTimeline())
             {
-                result.Effects.Add(GetEffectDescription(effect));
+
+                // Timeline 재생과 함께 실행
+             //   await ExecuteWithTimeline(context, result, cancellationToken);
+            }
+            else
+            {
+                // 기존 방식 실행
+                await ExecuteNormal(context, result, cancellationToken);
             }
 
-            // 쿨다운 설정 (구현 필요시)
-            // SetCooldown(skillData.skillId, skillData.cooldown);
         }
         catch (System.Exception ex)
         {
@@ -136,6 +127,42 @@ public class UseSkillCommand : IBattleCommand
 
         return result;
     }
+
+
+
+    private async UniTask ExecuteWithTimeline(CommandContext context, CommandResult result, CancellationToken cancellationToken = default)
+    {
+        // BattleActor의 Timeline 시스템 활용
+       // var timelineTask = Actor.PlaySkillTimeline(SkillId);
+      //  var skillTask = ExecuteSkillEffects();
+
+
+
+
+
+
+       // await UniTask.WhenAll(timelineTask, skillTask);
+    }
+
+    private async UniTask ExecuteNormal(CommandContext context, CommandResult result, CancellationToken cancellationToken = default)
+    {
+        // 스킬 효과 적용
+        ApplySkillEffects(context.Actor);
+
+        // 스킬 애니메이션 재생
+        await PlaySkillAnimation(context.Actor, cancellationToken);
+
+        // 성공 로그
+        Debug.Log($"[UseSkillCommand] {context.Actor.name} used {skillData.skillName}");
+
+        // 결과에 효과 정보 추가
+        foreach (var effect in skillData.effects)
+        {
+            result.Effects.Add(GetEffectDescription(effect));
+        }
+    }
+
+
 
     /// <summary>
     /// 스킬 효과 적용

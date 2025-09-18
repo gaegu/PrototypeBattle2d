@@ -8,10 +8,18 @@ public static class BattleDataLoader
 {
     // 캐시 추가 (성능 최적화)
     private static Dictionary<int, BattleCharacterDataSO> _characterCache = new Dictionary<int, BattleCharacterDataSO>();
+
+    private static Dictionary<int, BattleMonsterDataSO> _monsterCache = new Dictionary<int, BattleMonsterDataSO>();
+
     private static Dictionary<int, MonsterGroupDataSO> _monsterGroupCache = new Dictionary<int, MonsterGroupDataSO>();
 
 
-    public static async Task<BattleCharacterDataSO> GetCharacterDataAsync(int characterId)
+    public static string GetDataAddressableKey( BattleCharInfoNew charInfo )
+    {
+        return $"SO_{charInfo.GetName()}_{charInfo.GetResourceId()}_asset";
+    }
+
+    public static async Task<BattleCharacterDataSO> GetCharacterDataAsync(int characterId, string addressKey )
     {
         BattleCharacterDataSO characterData = null;
 
@@ -23,7 +31,7 @@ public static class BattleDataLoader
         else
         {
             // characterId로 Key 가져와라 / 테이블 뒤져서.. EX> "SO_Ayumi(이름)_" + characterId +"_asset";
-            string addressKey = characterId.ToString();
+            //string addressKey = characterId.ToString();
 
             // 2. Addressable로 로드
             try
@@ -46,13 +54,56 @@ public static class BattleDataLoader
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"[BattleDataLoader] Failed to load character {characterId}: {e.Message}");
+                Debug.LogError($"[BattleDataLoader] Failed to load character {characterId}: {e.Message} addressKey : {addressKey}");
             }
         }
 
 
         return characterData;
     }
+
+
+    public static async Task<BattleMonsterDataSO> GetMonsterDataAsync(int monsterrId, string addressKey)
+    {
+        BattleMonsterDataSO monsterData = null;
+
+        // 1. 캐시 확인
+        if (_monsterCache.TryGetValue(monsterrId, out monsterData))
+        {
+            Debug.Log($"[BattleDataLoader] Character {monsterrId} loaded from cache");
+        }
+        else
+        {
+            try
+            {
+                // AddressableManager 사용
+                if (GameCore.Addressables.AddressableManager.Instance != null)
+                {
+                    monsterData = await GameCore.Addressables.AddressableManager.Instance.LoadAssetAsync<BattleMonsterDataSO>(addressKey);
+                }
+                else
+                {
+                    // AddressableManager 없으면 직접 로드
+                    monsterData = await ResourceLoadHelper.LoadAssetAsync<BattleMonsterDataSO>(addressKey);
+                }
+
+                if (monsterData != null)
+                {
+                    _monsterCache[monsterrId] = monsterData;
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[BattleDataLoader] Failed to load character {monsterrId}: {e.Message} addressKey : {addressKey}");
+            }
+        }
+
+
+        return monsterData;
+    }
+
+
+
 
 
     /// <summary>
@@ -103,6 +154,7 @@ public static class BattleDataLoader
 
             // 프리팹 정보 설정 (중요!)
             charInfo.SetPrefabInfo(
+                characterData.CharacterName,
                 characterData.CharacterResourceName,
                 characterData.CharacterName,
                 characterData.AddressableKey,
@@ -171,8 +223,9 @@ public static class BattleDataLoader
                     var monsterInfo = new BattleCharInfoNew();
                     monsterInfo.SetIsAlly(false);
                     monsterInfo.SetSlotIndex(i);
-
+                    monsterInfo.SetIsMonster(true);
                     monsterInfo.SetPrefabInfo(
+                        slot.monsterData.MonsterName,
                         slot.monsterData.GetActualResourceName(),
                         slot.monsterData.GetActualResourceRootName(),
                         slot.monsterData.GetActualAddressableKey(),
@@ -249,6 +302,9 @@ public static class BattleDataLoader
     {
         _characterCache.Clear();
         _monsterGroupCache.Clear();
+
+        _monsterCache.Clear();
+
         Debug.Log("[BattleDataLoader] Cache cleared");
     }
 
@@ -258,6 +314,11 @@ public static class BattleDataLoader
     public static void RemoveFromCache(int characterId)
     {
         if (_characterCache.Remove(characterId))
+        {
+            Debug.Log($"[BattleDataLoader] Character {characterId} removed from cache");
+        }
+
+        if (_monsterCache.Remove(characterId))
         {
             Debug.Log($"[BattleDataLoader] Character {characterId} removed from cache");
         }

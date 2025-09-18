@@ -148,6 +148,13 @@ using UnityEngine;
 
     public void Init( BattleCharInfoNew battleCharInfo)
     {
+        spriteSheetAnimation.SafeSetActive(true);
+        captionLoader.SafeSetActive(false);
+
+        // 움직임 추적 초기화 추가
+        lastFramePosition = transform.position;
+
+
         BattleActorInfo = battleCharInfo;
 
         battleCharInfo.Initialize(this);
@@ -168,6 +175,10 @@ using UnityEngine;
             spriteSheetAnimation.LoadAnimationsAsync().Forget();
         }
 
+        // 이펙트 ID 초기화 자동 호출
+        InitializeEffectIds();
+
+
         // SpriteRenderer 캐싱
         InitializeSpriteRenderer();
 
@@ -175,6 +186,9 @@ using UnityEngine;
         // 스킬 시스템 초기화 추가
         InitializeSkillSystem();
         InitializeBPSystem();
+
+        InitializeTimelineSystem();
+
 
         // BP 테스트 모드 체크 및 적용
         if (BattleActorInfo != null && BattleActorInfo.EnableBPSkillTest)
@@ -309,6 +323,8 @@ using UnityEngine;
 
         CleanupSkillSystem();
 
+        CleanupTimeline();
+
     }
 
 
@@ -358,18 +374,6 @@ using UnityEngine;
         Vector3 localPosition = transform.localPosition;
         localPosition.y -= floorPosition.localPosition.y;
         transform.localPosition = localPosition;
-    }
-
-    private void Awake()
-    {
-        spriteSheetAnimation.SafeSetActive(true);
-        captionLoader.SafeSetActive(false);
-
-        // 이펙트 초기화 자동 호출
-        InitializeBattleActor();
-
-        // 움직임 추적 초기화 추가
-        lastFramePosition = transform.position;
     }
 
 

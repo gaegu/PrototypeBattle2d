@@ -6,6 +6,8 @@ using IronJade.Table.Data;
 using System;
 using BattleAI;
 using System.Xml.Linq;
+using BattleCharacterSystem;
+using Cysharp.Threading.Tasks;
 
 
 [Flags]
@@ -61,7 +63,89 @@ public partial class BattleCharInfoNew
     [SerializeField] private float monsterStatMultiplier = 1.2f;  // 몬스터 기본 배수
     [SerializeField] private float bossStatMultiplier = 2.0f;      // 보스 기본 배수
 
+    private BattleCharacterDataSO _cachedCharacterData = null;
+    private bool _isCharacterDataLoaded = false;
 
+    private BattleMonsterDataSO _cachedMonsterData = null;
+    private bool _isMonsterDataLoaded = false;
+
+    public async UniTask LoadCharacterDataAsync()
+    {
+        if (_isCharacterDataLoaded && _cachedCharacterData != null)
+        {
+            return;
+        }
+
+        try
+        {
+            //SO_Ru_1001_asset
+            _cachedCharacterData = await BattleDataLoader.GetCharacterDataAsync(resourceId, BattleDataLoader.GetDataAddressableKey(this));
+            _isCharacterDataLoaded = true;
+
+            if (_cachedCharacterData != null)
+            {
+                Debug.Log($"[BattleCharInfoNew] Loaded CharacterDataSO for {Name} (ID: {resourceId})");
+            }
+            else
+            {
+                Debug.LogWarning($"[BattleCharInfoNew] Failed to load CharacterDataSO for {Name} (ID: {resourceId})");
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[BattleCharInfoNew] Error loading CharacterDataSO: {e.Message}");
+            _isCharacterDataLoaded = true; // 에러 시에도 재시도 방지
+        }
+    }
+
+    public async UniTask LoadMonsterDataAsync()
+    {
+        if (_isMonsterDataLoaded && _cachedMonsterData != null)
+        {
+            return;
+        }
+
+        try
+        {
+            //SO_Ru_1001_asset
+            _cachedMonsterData = await BattleDataLoader.GetMonsterDataAsync(resourceId, BattleDataLoader.GetDataAddressableKey(this));
+            _isMonsterDataLoaded = true;
+
+            if (_cachedMonsterData != null)
+            {
+                Debug.Log($"[BattleCharInfoNew] Loaded MonsterDataSO for {Name} (ID: {resourceId})");
+            }
+            else
+            {
+                Debug.LogWarning($"[BattleCharInfoNew] Failed to load MonsterDataSO for {Name} (ID: {resourceId})");
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[BattleCharInfoNew] Error loading MonsterDataSO: {e.Message}");
+            _isMonsterDataLoaded = true; // 에러 시에도 재시도 방지
+        }
+    }
+
+
+
+
+    public BattleCharacterDataSO CharacterDataSO
+    {
+        get
+        {
+            return _cachedCharacterData;
+        }
+
+    }
+    public BattleMonsterDataSO MonsterDataSO
+    {
+        get
+        {
+            return _cachedMonsterData;
+        }
+
+    }
 
     // ==================================
     // === BP 스킬 테스트 필드 추가 ===
@@ -80,15 +164,17 @@ public partial class BattleCharInfoNew
 
 
     // 새 데이터 시스템용 필드 추가
+    private string name = ""; //실제 SO파일에 적용된 이름 
     private string prefabName = "";
-    private string rootName = "";
+    private string rootName = ""; //ResourcesName
     private int resourceId = 0; // 기본값
     private string prefabPath = "";
     public string addressableKey = ""; //
 
     // 새 데이터 시스템용 setter
-    public void SetPrefabInfo(string prefab, string root, string addressable, int resId = 1)
+    public void SetPrefabInfo(string name, string prefab, string root, string addressable, int resId = 1)
     {
+        this.name = name;
         prefabName = prefab;
         rootName = root;
         resourceId = resId;
@@ -97,6 +183,7 @@ public partial class BattleCharInfoNew
     }
 
     // CreateBattleActor에서 사용할 getter
+    public string GetName() => name;
     public string GetPrefabName() => prefabName;
     public string GetRootName() => rootName;
     public int GetResourceId() => resourceId;
@@ -994,6 +1081,7 @@ public partial class BattleCharInfoNew
     [CustomEnumPopup]
     public MonsterDefine MonsterDataEnum = MonsterDefine.None;
 
+ 
 
     public bool IsAlly { get; private set; }
     public void SetIsAlly( bool isAlly )

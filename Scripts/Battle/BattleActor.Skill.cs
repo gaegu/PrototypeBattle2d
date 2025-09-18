@@ -83,7 +83,14 @@ public partial class BattleActor : MonoBehaviour
             CooldownManager = new SkillCooldownManager(this);
         }
 
+
+        if (battleCharInfo.IsMonster == false)
+            RegisterCharacterSkills();
+        else
+            RegisterMonsterSkills();
     }
+
+
 
     /// <summary>
     /// BP 시스템 초기화 (InitializeSkillSystem에 추가)
@@ -99,6 +106,126 @@ public partial class BattleActor : MonoBehaviour
             }
         }
     }
+
+
+    /// <summary>
+    /// 캐릭터가 보유한 스킬 등록
+    /// </summary>
+    private void RegisterCharacterSkills()
+    {
+        // BattleCharInfoNew가 없으면 종료
+        if (battleCharInfo == null)
+        {
+            Debug.LogWarning($"[BattleActor] {name}: BattleCharInfo is null, skipping skill registration");
+            return;
+        }
+
+        // CharacterDataSO가 없으면 종료
+        if (battleCharInfo.CharacterDataSO == null)
+        {
+            Debug.LogWarning($"[BattleActor] {name}: CharacterData is null, skipping skill registration");
+            return;
+        }
+
+        // 스킬 데이터베이스 로드
+        var skillDatabase = AdvancedSkillDatabase.Load(false);
+        if (skillDatabase == null)
+        {
+            Debug.LogError("[BattleActor] Failed to load AdvancedSkillDatabase");
+            return;
+        }
+
+        var charData = battleCharInfo.CharacterDataSO as BattleCharacterSystem.BattleCharacterDataSO;
+        if (charData == null)
+        {
+            Debug.LogWarning($"[BattleActor] {name}: CharacterData is not BattleCharacterDataSO type");
+            return;
+        }
+
+        if (charData.ActiveSkillId > 0)
+        {
+            var activeSkillData = skillDatabase.GetSkillById(charData.ActiveSkillId);
+            if (activeSkillData != null)
+            {
+                skillManager.AddSkill(activeSkillData);
+                Debug.Log($"[BattleActor] {name}: Registered active skill - {activeSkillData.skillName} (ID: {charData.ActiveSkillId})");
+            }
+            else
+            {
+                Debug.LogWarning($"[BattleActor] {name}: Active skill ID {charData.ActiveSkillId} not found in database");
+            }
+        }
+
+        if (charData.PassiveSkillId > 0)
+        {
+            var passiveSkillData = skillDatabase.GetSkillById(charData.PassiveSkillId);
+            if (passiveSkillData != null)
+            {
+                skillManager.AddSkill(passiveSkillData);
+                Debug.Log($"[BattleActor] {name}: Registered passive skill - {passiveSkillData.skillName} (ID: {charData.PassiveSkillId})");
+            }
+            else
+            {
+                Debug.LogWarning($"[BattleActor] {name}: Passive skill ID {charData.PassiveSkillId} not found in database");
+            }
+        }
+
+        Debug.Log($"[BattleActor] {name}: Skill registration complete. Active skills: {skillManager.ActiveSkillCount}");
+    }
+
+    private void RegisterMonsterSkills()
+    {
+        // BattleCharInfoNew가 없으면 종료
+        if (battleCharInfo == null)
+        {
+            Debug.LogWarning($"[BattleActor] {name}: BattleCharInfo is null, skipping skill registration");
+            return;
+        }
+
+        // CharacterDataSO가 없으면 종료
+        if (battleCharInfo.MonsterDataSO == null)
+        {
+            Debug.LogWarning($"[BattleActor] {name}: CharacterData is null, skipping skill registration");
+            return;
+        }
+
+        // 스킬 데이터베이스 로드
+        var skillDatabase = AdvancedSkillDatabase.Load(false);
+        if (skillDatabase == null)
+        {
+            Debug.LogError("[BattleActor] Failed to load AdvancedSkillDatabase");
+            return;
+        }
+
+        var monsterData = battleCharInfo.MonsterDataSO as BattleCharacterSystem.BattleMonsterDataSO;
+        if (monsterData == null)
+        {
+            Debug.LogWarning($"[BattleActor] {name}: CharacterData is not BattleCharacterDataSO type");
+            return;
+        }
+
+
+        foreach( int skillId in monsterData.SkillIds )
+        {
+            if (skillId == 0) continue;
+
+            var skillData = skillDatabase.GetSkillById(skillId);
+            if (skillData != null)
+            {
+                skillManager.AddSkill(skillData);
+                Debug.Log($"[BattleActor] {name}: Registered active skill - {skillData.skillName} (ID: {skillId})");
+            }
+            else
+            {
+                Debug.LogWarning($"[BattleActor] {name}: Active skill ID {skillId} not found in database");
+            }
+        }
+
+
+        Debug.Log($"[BattleActor] {name}: Skill registration complete. Active skills: {skillManager.ActiveSkillCount}");
+    }
+
+
 
     /// <summary>
     /// BP 테스트 모드 초기화
@@ -155,7 +282,7 @@ public partial class BattleActor : MonoBehaviour
             {
 #if UNITY_EDITOR
                 // 테스트용 메서드 사용
-                skillManager.AddSkillForTest(skillData);
+                skillManager.AddSkill(skillData);
 #else
             // 프로덕션에서는 정상 경로 사용
             skillManager.ApplySkill(skillData, this, this);

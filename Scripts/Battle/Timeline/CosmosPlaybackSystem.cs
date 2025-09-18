@@ -32,11 +32,20 @@ namespace Cosmos.Timeline.Playback
         // 컴포넌트
         private ITimelineEventHandler eventHandler;
         private IResourceProvider resourceProvider;
+
         private EventContext eventContext;
+
+        // ===== Battle Actor 참조 추가 =====
+        private BattleActor battleActor = null;
 
         // 설정
         [SerializeField] private PlaybackSettings settings = new PlaybackSettings();
         [SerializeField] private EventFilter eventFilter = new EventFilter();
+
+
+
+
+
 
         // 프로퍼티
         public PlaybackState State => state;
@@ -90,6 +99,9 @@ namespace Cosmos.Timeline.Playback
 
         private void InitializeSystem()
         {
+            // BattleActor 설정
+            battleActor = GetComponent<BattleActor>();
+
             // Event Handler 설정
             eventHandler = GetComponent<ITimelineEventHandler>() ?? gameObject.AddComponent<TimelineEventHandler>();
 
