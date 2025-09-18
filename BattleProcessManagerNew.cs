@@ -857,6 +857,7 @@ public partial class BattleProcessManagerNew : MonoBehaviour
                 break;  // 타겟 선택 UI 건너뛰기
             }
 
+
             // 플레이어 입력 대기
             await WaitForCommand(turnInfo.Actor, token);
 
@@ -865,6 +866,7 @@ public partial class BattleProcessManagerNew : MonoBehaviour
             // 타겟이 필요한 커맨드인 경우
             if (!isForceCommandActive && (selectedCommand == "attack" || selectedCommand.StartsWith("skill")))
             {
+
                 HideBattleUI();
 
                 // 기본 타겟 설정
@@ -1637,16 +1639,6 @@ public partial class BattleProcessManagerNew : MonoBehaviour
 
 
     }
-
-    /// <summary>
-    /// 타이머 대기 헬퍼
-    /// </summary>
-    private async UniTask<bool> WaitForTimer(float time, CancellationToken token)
-    {
-        await UniTask.Delay(TimeSpan.FromSeconds(time), cancellationToken: token);
-        return true;
-    }
-
 
 
     public void OnUICommandSelected(string command)

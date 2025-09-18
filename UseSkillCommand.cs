@@ -90,9 +90,6 @@ public class UseSkillCommand : IBattleCommand
         var result = new CommandResult(true, $"Skill {skillData.skillName} executed");
         result.Effects.Add($"Used {skillData.skillName}");
 
-
-        Debug.LogError("^^%$^%$^%$^%$$^%");
-
         try
         {
 

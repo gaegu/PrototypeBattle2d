@@ -366,9 +366,47 @@ public class BattleUIManager : MonoBehaviour
 
 
     private void OnSkillButtonClick()
-    {
+    { 
 
-        Debug.LogError("^%^%$^%$^$%^%");
+        // onCommandSelected가 null이면 반환
+        if (onCommandSelected == null)
+        {
+            Debug.LogWarning("[BattleUIManager] No command callback set");
+            return;
+        }
+
+        // 현재 액터가 있고 사용 가능한 스킬이 있는 경우
+        if (currentActor != null)
+        {
+            AdvancedSkillRuntime activeSkill = currentActor.GetAvailableActiveSkill();
+
+            if (activeSkill != null)
+            {
+                // 스킬 ID 설정
+                if (BattleProcessManagerNew.Instance != null)
+                {
+                    BattleProcessManagerNew.Instance.SetSelectedSkillId(activeSkill.SkillID);
+                    Debug.Log($"[BattleUIManager] Set skill ID: {activeSkill.SkillID} ({activeSkill.SkillName}) - Cooldown ready");
+                }
+            }
+            else
+            {
+                // 쿨다운 중인 경우 디버그 정보 출력
+                var allSkills = currentActor.SkillManager.GetAllActiveSkills();
+                if (allSkills.Count > 0)
+                {
+                    foreach (var skill in allSkills)
+                    {
+                        int remaining = currentActor.CooldownManager.GetRemainingCooldown(skill.SkillID);
+                        Debug.LogWarning($"[BattleUIManager] Skill {skill.SkillName} on cooldown: {remaining} turns remaining");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("[BattleUIManager] No active skills available");
+                }
+            }
+        }
 
         // 스킬 패널이 없으면 기본 스킬 실행
         OnCommandButtonClick("skill");

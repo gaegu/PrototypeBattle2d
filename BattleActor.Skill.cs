@@ -408,6 +408,9 @@ public partial class BattleActor : MonoBehaviour
 
         foreach (var skill in listAllActiveSkill)
         {
+            //패시브 제외 
+            if (skill.SkillData.category == SkillSystem.SkillCategory.Passive || skill.SkillData.category == SkillSystem.SkillCategory.SpecialPassive) continue;
+
             if (this.CooldownManager.CanUseSkill(skill.SkillID) == true)
                 return skill;
         }
