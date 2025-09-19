@@ -397,40 +397,14 @@ namespace Cosmos.Timeline.Playback
         {
             if (currentTimeline.trackAnimations == null) return;
 
-            /* foreach (var trackAnim in currentTimeline.trackAnimations)
-             {
-                 if (trackAnim == null || trackAnim.animationClip == null) continue;
-
-                 bool shouldPlay = currentTime >= trackAnim.startTime &&
-                         currentTime <= trackAnim.startTime + trackAnim.duration;
-
-                 if (shouldPlay && !playingTracks.Contains(trackAnim))
-                 {
-                     (eventHandler as TimelineEventHandler)?.HandleTrackAnimation(trackAnim);
-                     playingTracks.Add(trackAnim);
-                 }
-             }*/
-
             foreach (var trackAnim in currentTimeline.trackAnimations)
             {
                 if (trackAnim == null || trackAnim.animationClip == null) continue;
 
-                // CharacterSpriteAnimator와 별개로 처리
-                StartCoroutine(PlayClipCoroutine(trackAnim.animationClip));
+                trackAnim.animationClip.SampleAnimation(this.gameObject, CurrentTime);
+
             }
 
-        }
-
-        private IEnumerator PlayClipCoroutine(AnimationClip clip)
-        {
-            float time = 0;
-            while (time < clip.length)
-            {
-                // 수동으로 클립 샘플링
-                clip.SampleAnimation(gameObject, time);
-                time += Time.deltaTime;
-                yield return null;
-            }
         }
 
 

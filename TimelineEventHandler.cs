@@ -15,6 +15,8 @@ namespace Cosmos.Timeline.Playback
 
         // 타겟 참조
         private Animator targetAnimator;
+        public Animator TargetAnimator => targetAnimator;
+
         private Transform targetTransform;
         private GameObject targetObject;
 
@@ -278,9 +280,6 @@ namespace Cosmos.Timeline.Playback
             // 재생
             targetAnimator.Play("GenericClip", 0, 0f);
             
-
-            Debug.LogError($"targetAnimator.Play : {clip.name}");
-
             // 강제 업데이트
             targetAnimator.Update(0f);
 
