@@ -17,9 +17,14 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
 		[SerializeField] private ImageToonUI imageToonUI; // 이미지툰 UI 참조
 		[SerializeField] private DialogueUI dialogueUI; // DialogueUI 참조 (speechBubbleParent 접근용)
 		
+		[Header("클릭 대기 UI")]
+		[SerializeField] private GameObject clickIndicator; // 클릭 대기 표시 UI
+		[SerializeField] private TextMeshProUGUI clickText; // "클릭하세요" 텍스트
+		
 		private GameObject currentBubble;
 		private UnityEngine.Camera mainCamera;
 		private Canvas worldCanvas; // 월드 스페이스 캔버스
+		private bool isWaitingForClick = false;
 
 		private void Awake()
 		{
@@ -39,6 +44,9 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
 		public void Hide()
 		{
 			if (panelRoot != null) panelRoot.SetActive(false);
+			
+			// 클릭 대기 상태 해제
+			SetWaitingForClick(false);
 			
 			// 말풍선도 함께 제거
 			if (currentBubble != null)
@@ -305,6 +313,36 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
 				Destroy(currentBubble);
 				currentBubble = null;
 			}
+		}
+		
+		/// <summary>
+		/// 클릭 대기 상태 설정
+		/// </summary>
+		public void SetWaitingForClick(bool waiting)
+		{
+			isWaitingForClick = waiting;
+			
+			if (clickIndicator != null)
+			{
+				clickIndicator.SetActive(waiting);
+			}
+			
+			if (clickText != null)
+			{
+				clickText.gameObject.SetActive(waiting);
+				if (waiting)
+				{
+					clickText.text = "클릭하세요...";
+				}
+			}
+		}
+		
+		/// <summary>
+		/// 클릭 대기 중인지 확인
+		/// </summary>
+		public bool IsWaitingForClick()
+		{
+			return isWaitingForClick;
 		}
 		
 		/// <summary>

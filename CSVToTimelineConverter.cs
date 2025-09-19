@@ -212,8 +212,8 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
                 return null;
             }
 
-            // CSV 컬럼 구조: ID,DataType,Character,Dialogue,ImageToonPath,SoundPath,Duration
-            // Duration 파싱 (마지막 컬럼)
+            // CSV 컬럼 구조: ID,DataType,Character,Dialogue,ImageToonPath,SoundPath,Duration,WaitForClick
+            // Duration 파싱 (7번째 컬럼)
             if (fields.Length >= 7 && !string.IsNullOrEmpty(fields[6]))
             {
                 if (float.TryParse(fields[6], out float duration))
@@ -230,6 +230,25 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
             {
                 // Duration이 없으면 기본값 사용
                 entry.duration = GetDefaultDuration(entry.dataType);
+            }
+            
+            // WaitForClick 파싱 (8번째 컬럼)
+            if (fields.Length >= 8 && !string.IsNullOrEmpty(fields[7]))
+            {
+                if (bool.TryParse(fields[7], out bool waitForClick))
+                {
+                    entry.waitForClick = waitForClick;
+                }
+                else
+                {
+                    Debug.LogWarning($"WaitForClick 파싱 실패, 기본값 사용: {fields[7]}");
+                    entry.waitForClick = false;
+                }
+            }
+            else
+            {
+                // WaitForClick이 없으면 기본값 사용
+                entry.waitForClick = false;
             }
             
             // DataType에 따른 필드 파싱
@@ -451,6 +470,7 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
                 clip.dialogueData.id = entry.id;
                 clip.dialogueData.characterName = entry.character;
                 clip.dialogueData.dialogueText = entry.dialogue;
+                clip.dialogueData.waitForClick = entry.waitForClick;
                 
                 EditorUtility.SetDirty(clip);
                 EditorUtility.SetDirty(track);
@@ -469,6 +489,7 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
                 
                 clip.soundData.id = entry.id;
                 clip.soundData.soundPath = entry.soundPath;
+                clip.soundData.waitForClick = entry.waitForClick;
                 
                 EditorUtility.SetDirty(clip);
                 EditorUtility.SetDirty(track);
@@ -490,6 +511,7 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
                 clip.actionData.targetObject = entry.targetTransform != null ? entry.targetTransform : null;
                 clip.actionData.animationName = entry.animationName;
                 clip.actionData.emotionType = entry.emotionType;
+                clip.actionData.waitForClick = entry.waitForClick;
                 
                 EditorUtility.SetDirty(clip);
                 EditorUtility.SetDirty(track);
@@ -508,6 +530,7 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
                 
                 clip.imageToonData.id = entry.id;
                 clip.imageToonData.imagePath = entry.imagePath;
+                clip.imageToonData.waitForClick = entry.waitForClick;
                 
                 // imagePath에서 스프라이트 로드 시도
                 if (!string.IsNullOrEmpty(entry.imagePath))
@@ -547,6 +570,7 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
                 clip.customData.id = entry.id;
                 clip.customData.customJson = entry.customJson;
                 clip.customData.customType = entry.character;
+                clip.customData.waitForClick = entry.waitForClick;
                 
                 EditorUtility.SetDirty(clip);
                 EditorUtility.SetDirty(track);

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using IronJade.Table.Data;
 using SkillSystem;
 using System;
+using Cosmos.Timeline.Playback;
 
 /// <summary>
 /// BattleActor의 부분 클래스 - 스킬 시스템 통합
@@ -354,6 +355,24 @@ public partial class BattleActor : MonoBehaviour
     private async UniTask ExecuteTimeline(BattleCharacterSystem.Timeline.TimelineDataSO timelineData)
     {
         Debug.Log($"[BattleActor] Playing skill timeline: {timelineData.timelineName}");
+
+        if (playbackSystem != null)
+        {
+            var eventHandler = playbackSystem.GetComponent<TimelineEventHandler>();
+            if (eventHandler != null)
+            {
+                // 현재 타겟 리스트 구성
+                List<BattleActor> currentTargets = new List<BattleActor>();
+
+                //한놈만 
+                currentTargets.Add(GetCurrentTarget());
+
+                // Battle 모드로 초기화
+                eventHandler.InitializeForBattle(this, currentTargets);
+
+                Debug.Log($"[BattleActor] Timeline initialized with {currentTargets.Count} targets");
+            }
+        }
 
         // Timeline 재생
         playbackSystem.Play(timelineData);

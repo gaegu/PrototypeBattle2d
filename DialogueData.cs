@@ -35,6 +35,7 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
         public string emotionType; // 감정 표현 타입
         public string customJson; // Custom 타입에서 사용할 JSON 데이터
         public float duration = 1f; // 클립 재생 시간 (초)
+        public bool waitForClick = false; // 클릭 대기 여부
     }
 
     [System.Serializable]
@@ -43,6 +44,7 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
         public int id;
         public string characterName;
         public string dialogueText;
+        public bool waitForClick = false; // 클릭 대기 여부
     }
 
     [System.Serializable]
@@ -51,6 +53,7 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
         public int id;
         public string imagePath;
         public Sprite imageToonSprite; // 프로젝트 뷰에서 드래그 앤 드롭할 스프라이트
+        public bool waitForClick = false; // 클릭 대기 여부
     }
 
     [System.Serializable]
@@ -58,6 +61,7 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
     {
         public int id;
         public string soundPath;
+        public bool waitForClick = false; // 클릭 대기 여부
     }
 
     [System.Serializable]
@@ -68,6 +72,7 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
         public Transform targetObject; // 이동할 대상 오브젝트 (Move 타입에서 사용)
         public string animationName; // 애니메이션 이름 (Animation 타입에서 사용)
         public string emotionType; // 감정 표현 타입 (Emotion 타입에서 사용)
+        public bool waitForClick = false; // 클릭 대기 여부
         
         /// <summary>
         /// GameObject에서 Transform을 가져옵니다.
@@ -84,6 +89,7 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
         public int id;
         public string customJson; // JSON 형태의 커스텀 데이터
         public string customType; // 커스텀 액션의 타입 (예: "CameraShake", "ParticleEffect" 등)
+        public bool waitForClick = false; // 클릭 대기 여부
     }
 
     [CreateAssetMenu(fileName = "DialogueData", menuName = "IronJade/Dialogue Data")]

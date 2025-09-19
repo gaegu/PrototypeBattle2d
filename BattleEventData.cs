@@ -154,7 +154,7 @@ public class TimelineCustomEventData : BattleEventData
 {
     public string EventName { get; set; }
     public BattleActor Actor { get; set; }
-    public Dictionary<string, object> Parameters { get; set; }
+    public Dictionary<string, string> Parameters { get; set; }
 
     public TimelineCustomEventData() : base(BattleEventType.TimelineCustom) { }
 }

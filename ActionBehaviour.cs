@@ -24,6 +24,10 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
         private bool isFirstFrame = true;
         private Transform bodyTransform;
         private Transform targetTransform;
+        private bool isWaitingForClick = false;
+        private bool hasReceivedClick = false;
+        private PlayableDirector director; // Timeline 제어를 위한 참조
+        private double pauseTime; // 클릭 대기 시작 시간
         
         // 이동 관련 변수들
         private Vector3 startPosition;
@@ -45,6 +49,14 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
             isMoving = false;
             walkAnimationStarted = false;  // 애니메이션 시작 상태 초기화
             moveDuration = (float)playable.GetDuration();
+            isWaitingForClick = false;
+            hasReceivedClick = false;
+            
+            // PlayableDirector 참조 가져오기
+            if (director == null)
+            {
+                director = Object.FindObjectOfType<PlayableDirector>();
+            }
         }
 
         public override void ProcessFrame(Playable playable, FrameData info, object playerData)
@@ -79,8 +91,49 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
                 {
                     InitializeMoveAction(playable);
                 }
-
+                
                 isFirstFrame = false;
+            }
+            
+            // 클립이 거의 끝날 때 클릭 대기 시작
+            double currentTime = playable.GetTime();
+            double duration = playable.GetDuration();
+            double progress = currentTime / duration;
+            
+            // 클립이 99% 진행되었을 때 클릭 대기 시작
+            if (actionData != null && actionData.waitForClick && !isWaitingForClick && progress >= 0.99)
+            {
+                isWaitingForClick = true;
+                pauseTime = currentTime; // 클릭 대기 시작 시간 저장
+                var dialogueUI = Object.FindObjectOfType<DialogueUI>();
+                if (dialogueUI != null)
+                {
+                    dialogueUI.SetWaitingForClick(true);
+                }
+                
+                // Timeline 일시정지
+                if (director != null)
+                {
+                    director.Pause();
+                }
+                
+                // ClickDetector를 통해 클릭 감지 시작
+                var clickDetector = Object.FindObjectOfType<ClickDetector>();
+                if (clickDetector == null)
+                {
+                    GameObject detectorObj = new GameObject("ClickDetector");
+                    clickDetector = detectorObj.AddComponent<ClickDetector>();
+                }
+                
+                clickDetector.StartWaitingForClick(() => {
+                    hasReceivedClick = true;
+                    isWaitingForClick = false;
+                    var dialogueUI = Object.FindObjectOfType<DialogueUI>();
+                    if (dialogueUI != null)
+                    {
+                        dialogueUI.SetWaitingForClick(false);
+                    }
+                });
             }
 
             if (isMoving && actionData.actionType == ActionType.Move)
@@ -276,6 +329,16 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
                 TrySetAnimation("Idle");
                 wasMoving = false;
                 walkAnimationStarted = false;  // Walk 애니메이션 시작 상태 초기화
+            }
+            
+            // 클릭 대기 중이 아닐 때만 UI 상태를 해제
+            if (!isWaitingForClick)
+            {
+                var dialogueUI = Object.FindObjectOfType<DialogueUI>();
+                if (dialogueUI != null)
+                {
+                    dialogueUI.SetWaitingForClick(false);
+                }
             }
             
             isMoving = false;

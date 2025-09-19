@@ -12,6 +12,12 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
         [SerializeField] public DialoguePanelUI dialoguePanelUI;
         [SerializeField] public ImageToonUI imageToonUI;
         [SerializeField] public Transform speechBubbleParent; // SpeechBubble의 부모 오브젝트
+        
+        [Header("클릭 대기 UI")]
+        [SerializeField] private GameObject clickIndicator; // 클릭 대기 표시 UI (예: 화살표, 깜빡이는 텍스트 등)
+        
+        private bool isWaitingForClick = false;
+        private bool forceShowUI = false; // 클릭 대기 중일 때 UI 강제 표시
 
         private void Awake()
         {
@@ -28,12 +34,46 @@ namespace IronJade.ResourcesAddressable._2DRenewal.PortraitNew
 
         public void HideDialogue()
         {
+            // 클릭 대기 중이면 UI를 숨기지 않음
+            if (isWaitingForClick && forceShowUI)
+            {
+                return;
+            }
+            
             if (dialoguePanelUI != null) dialoguePanelUI.Hide();
         }
 
         public void SetDialogue(string characterName, string dialogue)
         {
             if (dialoguePanelUI != null) dialoguePanelUI.SetDialogue(characterName, dialogue);
+        }
+        
+        /// <summary>
+        /// 클릭 대기 상태 설정
+        /// </summary>
+        public void SetWaitingForClick(bool waiting)
+        {
+            isWaitingForClick = waiting;
+            forceShowUI = waiting; // 클릭 대기 중일 때 UI 강제 표시
+            
+            if (clickIndicator != null)
+            {
+                clickIndicator.SetActive(waiting);
+            }
+            
+            // DialoguePanelUI에도 클릭 대기 상태 전달
+            if (dialoguePanelUI != null)
+            {
+                dialoguePanelUI.SetWaitingForClick(waiting);
+            }
+        }
+        
+        /// <summary>
+        /// 클릭 대기 중인지 확인
+        /// </summary>
+        public bool IsWaitingForClick()
+        {
+            return isWaitingForClick;
         }
         #endregion
 
