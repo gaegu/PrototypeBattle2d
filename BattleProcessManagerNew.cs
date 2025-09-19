@@ -9,7 +9,6 @@ using System.Linq;
 using System.Threading;
 using BattleAI;
 using System.Threading.Tasks;
-using SkillSystem;
 
 public partial class BattleProcessManagerNew : MonoBehaviour
 {
@@ -64,13 +63,6 @@ public partial class BattleProcessManagerNew : MonoBehaviour
     {
         selectedSkillId = skillId;
         Debug.Log($"[Battle] Selected skill ID set to: {skillId}");
-    }
-
-    public AdvancedSkillData GetSelectedSkill()
-    {
-        if (selectedSkillId == 0 || this.GetCurrentTurnActor() == null ) return null;
-
-        return this.GetCurrentTurnActor().SkillManager.GetOwnedSkillById(selectedSkillId);
     }
 
 

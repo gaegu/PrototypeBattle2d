@@ -73,9 +73,6 @@ public class CosmosTimelineController : EditorWindow
     private Animator previewAnimator;
     private Dictionary<string, AnimationClip> cachedAnimationClips = new Dictionary<string, AnimationClip>();
 
-
-
-
     // 클래스 정의
     private class EventMarker
     {
@@ -87,8 +84,6 @@ public class CosmosTimelineController : EditorWindow
         public string tooltip;
     }
     #endregion
-
- 
 
     #region Unity Lifecycle
     [MenuItem("*COSMOS*/Battle/Timeline Controller")]
@@ -447,9 +442,6 @@ public class CosmosTimelineController : EditorWindow
         // 마우스 입력 처리
         HandleTimelineInput();
     }
-
-
-
 
     private void DrawTimelineRuler()
     {

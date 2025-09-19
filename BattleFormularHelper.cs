@@ -262,7 +262,7 @@ public static class BattleFormularHelper
     /// <summary>
     /// 강화된 판정 체크
     /// </summary>
-    public static JudgementType CheckJudgement(BattleContext context)
+    private static JudgementType CheckJudgement(BattleContext context)
     {
         var attacker = context.Attacker.BattleActorInfo;
         var defender = context.Defender.BattleActorInfo;

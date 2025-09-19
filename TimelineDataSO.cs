@@ -131,7 +131,7 @@ namespace BattleCharacterSystem.Timeline
         {
             public float triggerTime;
             public string eventName;
-            public Dictionary<string, string> parameters = new Dictionary<string, string>();
+            public Dictionary<string, object> parameters = new Dictionary<string, object>();
 
             public float TriggerTime => triggerTime;
         }

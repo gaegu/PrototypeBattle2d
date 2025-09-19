@@ -25,8 +25,6 @@ namespace Cosmos.Timeline.Playback
 
         // ===== Battle 모드 추가 =====
         private BattleActor battleActor = null;
-        private BattleEventHandler battleEventHandler = null;
-        private List<BattleActor> battleTargets = new List<BattleActor>();
 
 
         // 활성 이펙트 관리
@@ -66,12 +64,11 @@ namespace Cosmos.Timeline.Playback
         /// <summary>
         /// Battle 모드로 초기화
         /// </summary>
-        public void InitializeForBattle(BattleActor actor, List<BattleActor> targets = null)
+        public void InitializeForBattle(BattleActor actor)
         {
             if (actor == null) return;
 
             battleActor = actor;
-            battleTargets = targets ?? new List<BattleActor>();
 
             // Battle 모드에서는 BattleActor의 컴포넌트 사용
             targetObject = actor.gameObject;
@@ -84,23 +81,11 @@ namespace Cosmos.Timeline.Playback
                     targetAnimator = actor.gameObject.AddComponent<Animator>();
             }
 
-            // BattleEventHandler 설정 - 새로 추가
-            if (battleEventHandler == null)
-            {
-                battleEventHandler = GetComponent<BattleEventHandler>();
-                if (battleEventHandler == null)
-                {
-                    battleEventHandler = gameObject.AddComponent<BattleEventHandler>();
-                }
-            }
-
-            // BattleEventHandler 초기화 - 새로 추가
-            battleEventHandler.Initialize(battleActor, battleTargets);
-
             // Resource Provider 찾기
             resourceProvider = GetComponent<IResourceProvider>();
             if (resourceProvider == null)
             {
+                // 없으면 생성
                 resourceProvider = gameObject.AddComponent<AddressableResourceProvider>();
                 Debug.Log("[EventHandler] Created new ResourceProvider");
             }
@@ -109,10 +94,11 @@ namespace Cosmos.Timeline.Playback
             LoadGenericController();
 
             if (debugMode)
-                Debug.Log($"[TimelineEventHandler] Initialized for Battle: {actor.name}, Targets: {battleTargets.Count}");
+                Debug.Log($"[TimelineEventHandler] Initialized for Battle: {actor.name}");
 
             initialize = true;
         }
+
         #endregion
 
 
@@ -379,9 +365,6 @@ namespace Cosmos.Timeline.Playback
         }
 
         #endregion
-
-
-       
 
         #region Effect Events
 
@@ -766,18 +749,10 @@ namespace Cosmos.Timeline.Playback
             {
                 OnEventTriggered?.Invoke(customEvent);
 
-                // Battle Event 체크 - 접두어로 구분
-                if (customEvent.eventName.StartsWith("Battle_"))
-                {
-                    HandleBattleEvent(customEvent);
-                }
-                else
-                {
-                    // 기존 Custom event 처리
-                    SendMessage($"OnCustomTimelineEvent_{customEvent.eventName}",
-                               customEvent.parameters,
-                               SendMessageOptions.DontRequireReceiver);
-                }
+                // Custom event는 외부에서 처리하도록 이벤트만 발생
+                SendMessage($"OnCustomTimelineEvent_{customEvent.eventName}",
+                           customEvent.parameters,
+                           SendMessageOptions.DontRequireReceiver);
 
                 OnEventCompleted?.Invoke(customEvent);
 
@@ -789,57 +764,6 @@ namespace Cosmos.Timeline.Playback
                 Debug.LogError($"[EventHandler] Custom event failed: {e.Message}");
             }
         }
-
-        // 새 메서드 추가 (HandleCustomEvent 바로 아래)
-        private void HandleBattleEvent(TimelineDataSO.CustomEvent customEvent)
-        {
-            if (battleEventHandler == null)
-            {
-                Debug.LogWarning("[EventHandler] BattleEventHandler is null");
-                return;
-            }
-
-            var eventType = customEvent.eventName.Replace("Battle_", "");
-            var param = customEvent.parameters ?? new Dictionary<string, string>();
-
-            switch (eventType)
-            {
-                case "Hit":
-                    float damage = float.Parse(param.GetValueOrDefault("damage", "100"));
-                    string hitEffect = param.GetValueOrDefault("effect", "");
-                    bool isReal = param.GetValueOrDefault("type", "real") == "real";
-
-                    if (isReal)
-                    {
-                        battleEventHandler.ApplyDamagePercent(damage);
-                    }
-                    if (!string.IsNullOrEmpty(hitEffect))
-                    {
-                        battleEventHandler.ShowHitEffect(hitEffect);
-                    }
-                    break;
-
-                case "Camera":
-                    string cameraName = param.GetValueOrDefault("name", "Main");
-                    float blend = float.Parse(param.GetValueOrDefault("blend", "0.5"));
-                    battleEventHandler.SwitchCamera(cameraName, blend);
-                    break;
-
-                case "Move":
-                    string pos = param.GetValueOrDefault("position", "Center");
-                    bool instant = param.GetValueOrDefault("instant", "false") == "true";
-                    battleEventHandler.MoveTargetsToPosition(pos, instant);
-                    break;
-
-                case "Tween":
-                    string tweenType = param.GetValueOrDefault("type", "Scale");
-                    float duration = float.Parse(param.GetValueOrDefault("duration", "0.5"));
-                    battleEventHandler.ApplyTweenToTargets(tweenType, duration);
-                    break;
-            }
-        }
-
-
 
         #endregion
 
