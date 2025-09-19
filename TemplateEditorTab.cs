@@ -39,7 +39,7 @@ public class TemplateEditorTab
         if (templateDatabase == null)
         {
             templateDatabase = ScriptableObject.CreateInstance<TemplateDatabase>();
-            AssetDatabase.CreateAsset(templateDatabase, "Assets/Cosmos/ResourcesAddressable/ScriptableObjects/TemplateDatabase.asset");
+            AssetDatabase.CreateAsset(templateDatabase, "Assets/Cosmos/ResourcesAddressable/ScriptableObjects/Common/TemplateDatabase.asset");
             templateDatabase.CreateDefaultTemplates();
             AssetDatabase.SaveAssets();
         }

@@ -36,6 +36,8 @@ public partial class BattleActor : MonoBehaviour
         {
             playbackSystem = gameObject.AddComponent<CosmosPlaybackSystem>();
         }
+        playbackSystem.InitializeSystem(this);
+
 
         // TimelineEventHandler 가져오기/생성
         eventHandler = GetComponent<TimelineEventHandler>();
@@ -44,25 +46,14 @@ public partial class BattleActor : MonoBehaviour
             eventHandler = gameObject.AddComponent<TimelineEventHandler>();
         }
 
+        eventHandler.InitializeForBattle(this);
+
         // 이벤트 구독
         SubscribeTimelineEvents();
 
-        // CharacterData의 Timeline 로드
-        LoadCharacterTimeline();
+
 
         UnityEngine.Debug.Log($"[BattleActor.Timeline] Timeline system initialized for {name}");
-    }
-
-    private void LoadCharacterTimeline()
-    {
-        // BattleCharInfoNew에서 Timeline 가져오기
-       /* if (battleCharInfo?.characterData?.timelineData != null)
-        {
-            currentTimeline = battleCharInfo.characterData.timelineData;
-            playbackSystem.LoadTimeline(currentTimeline);
-            UnityEngine.Debug.Log($"[BattleActor.Timeline] Loaded timeline: {currentTimeline.timelineName}");
-        }*/
-
     }
 
     #endregion
@@ -174,42 +165,7 @@ public partial class BattleActor : MonoBehaviour
 
     }
 
-    #region Public Timeline Methods
-
-    /// <summary>
-    /// 스킬 Timeline 재생
-    /// </summary>
-    public void PlaySkillTimeline(int skillId)
-    {
-        if (playbackSystem == null || currentTimeline == null)
-        {
-            UnityEngine.Debug.LogWarning($"[BattleActor.Timeline] Timeline not ready for skill {skillId}");
-            return;
-        }
-
-        // Timeline 재생
-        playbackSystem.Play(currentTimeline);
-
-    }
-
-    /// <summary>
-    /// Timeline 재생 중지
-    /// </summary>
-    public void StopTimeline()
-    {
-        playbackSystem?.Stop();
-    }
-
-    /// <summary>
-    /// Timeline 재생 가능 여부
-    /// </summary>
-    public bool CanPlayTimeline()
-    {
-        return playbackSystem != null && currentTimeline != null && !IsDead;
-    }
-
-
-    #endregion
+   
 
     #region Cleanup
 

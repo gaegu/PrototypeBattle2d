@@ -146,7 +146,8 @@ public partial class BattleActor : MonoBehaviour
     /// </summary>
     public async UniTask PerformAttack()
     {
-        SetAnimation(BattleActorAnimation.Attack);
+        SetState(BattleActorState.Attack);
+
         string effectId = GetEffectId(BattleActorEffectType.Attack1);
 
         // 타겟이 설정되어 있으면 타겟 정보도 전달
@@ -159,7 +160,8 @@ public partial class BattleActor : MonoBehaviour
             OnAttackHit     // 피격 콜백
         );
 
-        SetAnimation(BattleActorAnimation.Idle);
+        SetState(BattleActorState.Idle);
+
     }
 
     /// <summary>
@@ -179,7 +181,7 @@ public partial class BattleActor : MonoBehaviour
                 if (activeSkill != null)
                 {
                     // BP 사용하여 업그레이드하고 실행
-                    UseSkillWithBP(activeSkill.SkillData, target, true);
+                    UseSkillWithBP(activeSkill.SkillData, target, true).Forget();
                 }
                 else
                 {
@@ -273,12 +275,6 @@ public partial class BattleActor : MonoBehaviour
         if (damageResult.IsCritical)
         {
             Debug.Log($"[Battle] CRITICAL HIT! Bonus: {damageResult.CriticalBonus}");
-
-            // Critical 이펙트
-            if (BattleEffectManager.Instance != null)
-            {
-                await BattleEffectManager.Instance.PlayEffect("CriticalEffect", this);
-            }
         }
 
 
@@ -436,7 +432,7 @@ public partial class BattleActor : MonoBehaviour
         // === 10. 피격 애니메이션 및 이펙트 ===
         if (!damageResult.IsBlocked && actualDamage > 0)  // Block이 아닐 때만
         {
-            SetAnimation(BattleActorAnimation.Hit);
+            SetState(BattleActorState.Hit);
             PlayHitColorEffect();
 
             // 피격 이펙트
@@ -446,7 +442,9 @@ public partial class BattleActor : MonoBehaviour
             }
 
             await UniTask.Delay(500);
-            SetAnimation(BattleActorAnimation.Idle);
+
+            SetState(BattleActorState.Idle);
+          //  SetAnimation(BattleActorAnimation.Idle);
         }
 
         // === 11. 태그 UI 업데이트 ===

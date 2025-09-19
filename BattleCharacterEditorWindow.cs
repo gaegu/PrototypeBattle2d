@@ -512,34 +512,6 @@ public class BattleCharacterEditorWindow : EditorWindow
                 }
             }
 
-            // ActiveSkill1 Timeline
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                EditorGUILayout.LabelField("ActiveSkill1", GUILayout.Width(100));
-
-                var activeSkill1Prop = timelineSettingsProp.FindPropertyRelative("activeSkill1Timeline");
-                EditorGUILayout.PropertyField(activeSkill1Prop, GUIContent.none);
-
-                if (GUILayout.Button("Convert", GUILayout.Width(60)))
-                {
-                    ConvertTimelineFromPath("ActiveSkill1", activeSkill1Prop);
-                }
-            }
-
-            // PassiveSkill1 Timeline
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                EditorGUILayout.LabelField("PassiveSkill1", GUILayout.Width(100));
-
-                var passiveSkill1Prop = timelineSettingsProp.FindPropertyRelative("passiveSkill1Timeline");
-                EditorGUILayout.PropertyField(passiveSkill1Prop, GUIContent.none);
-
-                if (GUILayout.Button("Convert", GUILayout.Width(60)))
-                {
-                    ConvertTimelineFromPath("PassiveSkill1", passiveSkill1Prop);
-                }
-            }
-
             // Custom Timelines
             EditorGUILayout.Space(5);
             EditorGUILayout.LabelField("Custom Timelines", EditorStyles.boldLabel);
@@ -596,7 +568,7 @@ public class BattleCharacterEditorWindow : EditorWindow
         // Timeline Asset 선택 다이얼로그
         string path = EditorUtility.OpenFilePanel(
             $"Select {slotName} Timeline",
-            "Assets/Dev/Cosmos/Timeline/Characters",
+            "Assets/Cosmos/_Dev/Timeline",
             "playable");
 
         if (!string.IsNullOrEmpty(path))
@@ -925,6 +897,7 @@ public class BattleCharacterEditorWindow : EditorWindow
             // 액티브 스킬
             EditorGUILayout.LabelField("액티브 스킬", EditorStyles.boldLabel);
             var activeSkillProp = serializedObject.FindProperty("activeSkillId");
+            var activeSkillTimelineProp = serializedObject.FindProperty("activeSkillTimeline");
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -970,17 +943,47 @@ public class BattleCharacterEditorWindow : EditorWindow
                 if (GUILayout.Button("X", GUILayout.Width(25)))
                 {
                     activeSkillProp.intValue = 0;
+                    activeSkillProp.objectReferenceValue = null; // Timeline도 클리어
                     serializedObject.ApplyModifiedProperties();
                     isDirty = true;
                 }
                 GUI.enabled = true;
             }
 
+
+            // 스킬이 선택되어 있을 때 정보 표시
+            if (activeSkillProp.intValue > 0)
+            {
+                EditorGUI.indentLevel++;
+
+                var skillData = GetSkillData(activeSkillProp.intValue);
+                if (skillData != null)
+                {
+                    // Timeline 필드
+                    EditorGUILayout.Space(3);
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        EditorGUILayout.PropertyField(activeSkillTimelineProp, new GUIContent("Timeline"));
+
+                        if (GUILayout.Button("Convert", GUILayout.Width(60)))
+                        {
+                            ConvertTimelineFromPath("ActiveSkill", activeSkillTimelineProp);
+                        }
+                    }
+                }
+
+                EditorGUI.indentLevel--;
+            }
+
+
+
+
             EditorGUILayout.Space(5);
 
             // 패시브 스킬
             EditorGUILayout.LabelField("패시브 스킬", EditorStyles.boldLabel);
             var passiveSkillProp = serializedObject.FindProperty("passiveSkillId");
+            var passiveSkillTimelineProp = serializedObject.FindProperty("passiveSkillTimeline");
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -1024,14 +1027,36 @@ public class BattleCharacterEditorWindow : EditorWindow
                 if (GUILayout.Button("X", GUILayout.Width(25)))
                 {
                     passiveSkillProp.intValue = 0;
+                    passiveSkillProp.objectReferenceValue = null; // Timeline도 클리어
                     serializedObject.ApplyModifiedProperties();
                     isDirty = true;
                 }
                 GUI.enabled = true;
             }
+            // 스킬이 선택되어 있을 때 정보 표시
+            if (passiveSkillProp.intValue > 0)
+            {
+                EditorGUI.indentLevel++;
 
+                var skillData = GetSkillData(passiveSkillProp.intValue);
+                if (skillData != null)
+                {
+                    // Timeline 필드
+                    EditorGUILayout.Space(3);
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        EditorGUILayout.PropertyField(passiveSkillTimelineProp, new GUIContent("Timeline"));
 
+                        if (GUILayout.Button("Convert", GUILayout.Width(60)))
+                        {
+                            ConvertTimelineFromPath("PassiveSkill", passiveSkillTimelineProp);
+                        }
+                    }
+                }
+            }
+             
             serializedObject.ApplyModifiedProperties();
+
         }
 
         EditorGUILayout.Space(10);

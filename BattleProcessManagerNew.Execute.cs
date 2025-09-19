@@ -264,39 +264,35 @@ public partial class BattleProcessManagerNew : MonoBehaviour
     /// </summary>
     private async UniTask ExecuteSkill(TurnInfo turnInfo, BattleActor target, CancellationToken token)
     {
+
         var attacker = turnInfo.Actor;
         Debug.Log($"[Skill] {attacker.name} uses skill on {target.name}");
+
+        attacker.SetState(BattleActorState.Skill);
 
         // selectedSkillId가 설정되어 있으면 사용
         int skillId = selectedSkillId > 0 ? selectedSkillId : GetDefaultSkillId(attacker);
 
         Debug.LogError($"[Skill] Using skill ID: {skillId} SelectedSkill : {selectedSkillId}");
 
-        // === 스킬 실행 로직 ===
-        // 1. 스킬 매니저 확인
         if (attacker.SkillManager != null && skillId > 0)
         {
-            var skillData = attacker.SkillManager.GetSkillById(skillId);
+            var skillData = attacker.SkillManager.GetOwnedSkillById(skillId);
             if (skillData != null)
             {
+                Debug.LogError($"[Skill] Using skill Name: {skillData.skillName} ");
 
-                Debug.LogError($"[Skill] Using skill Name: {skillData.SkillName} ");
-
-
-                // 스킬 이펙트 재생
-                await ShowSkillEffect(attacker, target, skillId, token);
-
-                // 데미지/효과 적용
-                ApplySkillEffect(attacker, target, skillData);
+                await attacker.UseSkill(skillData, target);
             }
         }
         else
         {
-            // 기본 스킬 처리
-            await ShowBasicSkillEffect(attacker, target, token);
+
             ApplyBasicSkillDamage(attacker, target);
         }
 
+
+        attacker.SetState(BattleActorState.Idle);
         // 스킬 ID 리셋
         selectedSkillId = 0;
 
@@ -314,25 +310,6 @@ public partial class BattleProcessManagerNew : MonoBehaviour
         return 0; // 임시
     }
 
-
-
-    private async UniTask ShowSkillEffect(BattleActor attacker, BattleActor target, int skillId, CancellationToken token)
-    {
-        // 스킬 이펙트 재생
-        await UniTask.Delay(500, cancellationToken: token);
-    }
-
-    private async UniTask ShowBasicSkillEffect(BattleActor attacker, BattleActor target, CancellationToken token)
-    {
-        // 기본 스킬 이펙트
-        await UniTask.Delay(300, cancellationToken: token);
-    }
-
-    private void ApplySkillEffect(BattleActor attacker, BattleActor target, AdvancedSkillRuntime skillData)
-    {
-        // 스킬 효과 적용
-        Debug.Log($"[Skill] Applied skill effect");
-    }
 
     private void ApplyBasicSkillDamage(BattleActor attacker, BattleActor target)
     {

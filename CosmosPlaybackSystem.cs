@@ -43,6 +43,8 @@ namespace Cosmos.Timeline.Playback
         [SerializeField] private EventFilter eventFilter = new EventFilter();
 
 
+        // 새 메서드 추가
+        private HashSet<TimelineDataSO.TrackAnimation> playingTracks = new HashSet<TimelineDataSO.TrackAnimation>();
 
 
 
@@ -74,10 +76,6 @@ namespace Cosmos.Timeline.Playback
 
         #region Unity Lifecycle
 
-        private void Awake()
-        {
-            InitializeSystem();
-        }
 
         private void OnDestroy()
         {
@@ -97,10 +95,10 @@ namespace Cosmos.Timeline.Playback
 
         #region Initialization
 
-        private void InitializeSystem()
+        public void InitializeSystem( BattleActor actor = null )
         {
             // BattleActor 설정
-            battleActor = GetComponent<BattleActor>();
+            battleActor = actor;
 
             // Event Handler 설정
             eventHandler = GetComponent<ITimelineEventHandler>() ?? gameObject.AddComponent<TimelineEventHandler>();
@@ -247,6 +245,10 @@ namespace Cosmos.Timeline.Playback
             // 실행된 이벤트 초기화
             executedEvents.Clear();
 
+
+            // TrackAnimation의 AnimationClip 로드 추가
+            PreloadTrackAnimations(timeline);
+
             // 리소스 프리로드
             if (settings.autoPreloadResources)
             {
@@ -256,6 +258,34 @@ namespace Cosmos.Timeline.Playback
             if (settings.logEvents)
                 Debug.Log($"[CosmosPlayback] Loaded timeline: {timeline.timelineName} ({allEvents.Count} events)");
         }
+
+        // 새 메서드 추가
+        private void PreloadTrackAnimations(TimelineDataSO timeline)
+        {
+            if (timeline.trackAnimations == null || resourceProvider == null) return;
+
+            foreach (var trackAnim in timeline.trackAnimations)
+            {
+                if (trackAnim == null) continue;
+
+                // animationClip이 없고 addressableKey가 있는 경우
+                if (trackAnim.animationClip == null && !string.IsNullOrEmpty(trackAnim.animationClipAddressableKey))
+                {
+                    resourceProvider.LoadResourceAsync<AnimationClip>(
+                        trackAnim.animationClipAddressableKey,
+                        clip => {
+                            if (clip != null)
+                            {
+                                trackAnim.animationClip = clip;
+                                if (settings.logEvents)
+                                    Debug.Log($"[CosmosPlayback] Loaded track animation: {trackAnim.trackName}");
+                            }
+                        }
+                    );
+                }
+            }
+        }
+
 
         private void PreloadTimelineResources()
         {
@@ -316,9 +346,17 @@ namespace Cosmos.Timeline.Playback
             {
                 foreach (var trackAnim in currentTimeline.trackAnimations)
                 {
-                    if (trackAnim.startTime == 0)  // 시작 시점에 재생
+                    if (trackAnim != null && trackAnim.startTime == 0)
                     {
-                        (eventHandler as TimelineEventHandler)?.HandleTrackAnimation(trackAnim);
+                        // AnimationClip이 로드되었는지 확인
+                        if (trackAnim.animationClip != null)
+                        {
+                            (eventHandler as TimelineEventHandler)?.HandleTrackAnimation(trackAnim);
+                        }
+                        else if (settings.logEvents)
+                        {
+                            Debug.LogError($"[CosmosPlayback] Track animation not loaded: {trackAnim.trackName}");
+                        }
                     }
                 }
             }
@@ -344,12 +382,57 @@ namespace Cosmos.Timeline.Playback
                 currentTime += adjustedDelta;
             }
 
+            // TrackAnimation 처리 추가
+            ProcessTrackAnimations();
+
             // 이벤트 처리
             ProcessEvents();
 
             // 종료 체크
             CheckPlaybackEnd();
         }
+
+
+        private void ProcessTrackAnimations()
+        {
+            if (currentTimeline.trackAnimations == null) return;
+
+            /* foreach (var trackAnim in currentTimeline.trackAnimations)
+             {
+                 if (trackAnim == null || trackAnim.animationClip == null) continue;
+
+                 bool shouldPlay = currentTime >= trackAnim.startTime &&
+                         currentTime <= trackAnim.startTime + trackAnim.duration;
+
+                 if (shouldPlay && !playingTracks.Contains(trackAnim))
+                 {
+                     (eventHandler as TimelineEventHandler)?.HandleTrackAnimation(trackAnim);
+                     playingTracks.Add(trackAnim);
+                 }
+             }*/
+
+            foreach (var trackAnim in currentTimeline.trackAnimations)
+            {
+                if (trackAnim == null || trackAnim.animationClip == null) continue;
+
+                // CharacterSpriteAnimator와 별개로 처리
+                StartCoroutine(PlayClipCoroutine(trackAnim.animationClip));
+            }
+
+        }
+
+        private IEnumerator PlayClipCoroutine(AnimationClip clip)
+        {
+            float time = 0;
+            while (time < clip.length)
+            {
+                // 수동으로 클립 샘플링
+                clip.SampleAnimation(gameObject, time);
+                time += Time.deltaTime;
+                yield return null;
+            }
+        }
+
 
         private void ProcessEvents()
         {
@@ -535,6 +618,9 @@ namespace Cosmos.Timeline.Playback
 
             if (!shouldEnd) return;
 
+            // Track 애니메이션 재생 상태 초기화
+            playingTracks.Clear();
+
             switch (mode)
             {
                 case PlaybackMode.Once:
@@ -622,6 +708,7 @@ namespace Cosmos.Timeline.Playback
         {
             pendingEvents.Clear();
             executedEvents.Clear();
+            playingTracks.Clear();  // 추가
 
             foreach (var evt in allEvents)
             {
@@ -640,6 +727,26 @@ namespace Cosmos.Timeline.Playback
                     pendingEvents.Add(evt);
                 }
             }
+
+
+            // Track 애니메이션 상태도 재구성
+            if (currentTimeline.trackAnimations != null)
+            {
+                foreach (var trackAnim in currentTimeline.trackAnimations)
+                {
+                    if (trackAnim != null && trackAnim.animationClip != null)
+                    {
+                        bool inRange = currentTime >= trackAnim.startTime &&
+                                     currentTime <= trackAnim.startTime + trackAnim.duration;
+                        if (inRange)
+                        {
+                            (eventHandler as TimelineEventHandler)?.HandleTrackAnimation(trackAnim);
+                            playingTracks.Add(trackAnim);
+                        }
+                    }
+                }
+            }
+
         }
 
         private bool ShouldExecuteOnSeek(TimelineDataSO.ITimelineEvent evt)
@@ -685,6 +792,8 @@ namespace Cosmos.Timeline.Playback
             {
                 resourceProvider.ClearPreloadedResources();
             }
+
+            playingTracks.Clear();  // 추가
         }
 
         private void CleanupActiveEffects()

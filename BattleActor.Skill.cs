@@ -147,7 +147,7 @@ public partial class BattleActor : MonoBehaviour
             var activeSkillData = skillDatabase.GetSkillById(charData.ActiveSkillId);
             if (activeSkillData != null)
             {
-                skillManager.AddSkill(activeSkillData);
+                skillManager.RegisterOwnedSkill(activeSkillData);
                 Debug.Log($"[BattleActor] {name}: Registered active skill - {activeSkillData.skillName} (ID: {charData.ActiveSkillId})");
             }
             else
@@ -161,7 +161,7 @@ public partial class BattleActor : MonoBehaviour
             var passiveSkillData = skillDatabase.GetSkillById(charData.PassiveSkillId);
             if (passiveSkillData != null)
             {
-                skillManager.AddSkill(passiveSkillData);
+                skillManager.RegisterOwnedSkill(passiveSkillData);
                 Debug.Log($"[BattleActor] {name}: Registered passive skill - {passiveSkillData.skillName} (ID: {charData.PassiveSkillId})");
             }
             else
@@ -212,7 +212,7 @@ public partial class BattleActor : MonoBehaviour
             var skillData = skillDatabase.GetSkillById(skillId);
             if (skillData != null)
             {
-                skillManager.AddSkill(skillData);
+                skillManager.RegisterOwnedSkill(skillData);
                 Debug.Log($"[BattleActor] {name}: Registered active skill - {skillData.skillName} (ID: {skillId})");
             }
             else
@@ -281,14 +281,12 @@ public partial class BattleActor : MonoBehaviour
             if (skillData != null)
             {
 #if UNITY_EDITOR
-                // 테스트용 메서드 사용
-                skillManager.AddSkill(skillData);
+                // skillManager.AddSkill(skillData); <- 기존 코드 삭제
+                skillManager.RegisterOwnedSkill(skillData); // 소유 스킬로 등록
 #else
-            // 프로덕션에서는 정상 경로 사용
-            skillManager.ApplySkill(skillData, this, this);
+            skillManager.RegisterOwnedSkill(skillData);
 #endif
-
-                Debug.Log($"[BP Test] Loaded skill {skillId}: {skillData.skillName}");
+                Debug.Log($"[BP Test] Registered owned skill {skillId}: {skillData.skillName}");
             }
         }
     }
@@ -319,12 +317,80 @@ public partial class BattleActor : MonoBehaviour
 
 
     #endregion
+    #region Public Timeline Methods
+
+    /// <summary>
+    /// 스킬 Timeline 재생
+    /// </summary>
+    public async UniTask PlaySkillTimeline(int skillId)
+    {
+        if (battleCharInfo?.CharacterDataSO == null) return;
+
+        var charData = battleCharInfo.CharacterDataSO as BattleCharacterSystem.BattleCharacterDataSO;
+        if (charData == null) return;
+
+        BattleCharacterSystem.Timeline.TimelineDataSO timelineData = null;
+
+        // Active Skill Timeline 체크
+        if (charData.ActiveSkillId == skillId && charData.ActiveSkillTimeline != null)
+        {
+            timelineData = charData.ActiveSkillTimeline;
+        }
+        // Passive Skill Timeline 체크
+        else if (charData.PassiveSkillId == skillId && charData.PassiveSkillTimeline != null)
+        {
+            timelineData = charData.PassiveSkillTimeline;
+        }
+
+        // Timeline 실행
+        if (timelineData != null)
+        {
+            await ExecuteTimeline(timelineData);
+        }
+
+    }
+
+    // ExecuteTimeline 메서드 수정
+    private async UniTask ExecuteTimeline(BattleCharacterSystem.Timeline.TimelineDataSO timelineData)
+    {
+        Debug.Log($"[BattleActor] Playing skill timeline: {timelineData.timelineName}");
+
+        // Timeline 재생
+        playbackSystem.Play(timelineData);
+
+        // 재생 완료 대기
+        await UniTask.WaitUntil(() =>
+            playbackSystem.State == Cosmos.Timeline.Playback.PlaybackState.Finished ||
+            playbackSystem.State == Cosmos.Timeline.Playback.PlaybackState.Stopped
+        );
+
+        Debug.Log($"[BattleActor] Skill timeline completed: {timelineData.timelineName}");
+    }
+
+    /// <summary>
+    /// Timeline 재생 중지
+    /// </summary>
+    public void StopTimeline()
+    {
+        playbackSystem?.Stop();
+    }
+
+    /// <summary>
+    /// Timeline 재생 가능 여부
+    /// </summary>
+    public bool CanPlayTimeline()
+    {
+        return playbackSystem != null && currentTimeline != null && !IsDead;
+    }
+
+
+    #endregion
 
     #region Public API
     /// <summary>
     /// 스킬 사용 (테이블 ID 기반)
     /// </summary>
-    public void UseSkill(AdvancedSkillData skillData, BattleActor target)
+    public async UniTask UseSkill(AdvancedSkillData skillData, BattleActor target)
     {
         if (skillManager == null)
         {
@@ -338,18 +404,8 @@ public partial class BattleActor : MonoBehaviour
             return;
         }
 
-        // MP 체크
-        /*if (BattleActorInfo.Mp < skillData.manaCost)
-        {
-            Debug.Log($"[BattleActor] Not enough MP! Need {skillData.manaCost}, have {BattleActorInfo.Mp}");
-            return;
-        }
 
-        // MP 소모
-        BattleActorInfo.UseMP(skillData.manaCost);*/
-
-
-        // MP 체크 제거, 쿨다운 체크로 교체
+        // 쿨다운 체크로 교체
         if (!CooldownManager.CanUseSkill(skillData.skillId))
         {
             int remaining = CooldownManager.GetRemainingCooldown(skillData.skillId);
@@ -364,8 +420,9 @@ public partial class BattleActor : MonoBehaviour
         // 스킬 적용
         skillManager.ApplySkill(skillData, this, target);
 
-        // 스킬 이펙트 시각화
-        PlaySkillVisualEffect(skillData);
+        // Timeline 실행 추가
+        await PlaySkillTimeline(skillData.skillId);
+
     }
 
     // BattleActor.cs에 추가
@@ -404,15 +461,23 @@ public partial class BattleActor : MonoBehaviour
 
     public AdvancedSkillRuntime GetAvailableActiveSkill()
     {
-        List<AdvancedSkillRuntime> listAllActiveSkill = SkillManager.GetAllActiveSkills();
+        List<AdvancedSkillData> ownedSkills = skillManager.GetOwnedSkills();
 
-        foreach (var skill in listAllActiveSkill)
+        foreach (var skillData in ownedSkills)
         {
-            //패시브 제외 
-            if (skill.SkillData.category == SkillSystem.SkillCategory.Passive || skill.SkillData.category == SkillSystem.SkillCategory.SpecialPassive) continue;
+            // 패시브 제외
+            if (skillData.category == SkillSystem.SkillCategory.Passive ||
+                skillData.category == SkillSystem.SkillCategory.SpecialPassive)
+                continue;
 
-            if (this.CooldownManager.CanUseSkill(skill.SkillID) == true)
-                return skill;
+            // 쿨다운 체크
+            if (this.CooldownManager.CanUseSkill(skillData.skillId))
+            {
+                // AdvancedSkillData를 임시 Runtime으로 래핑 (또는 리턴 타입 변경 필요)
+                var runtime = AdvancedSkillFactory.CreateSkill(skillData);
+                runtime.Initialize(this, null, skillData);
+                return runtime;
+            }
         }
         return null;
     }
@@ -421,7 +486,7 @@ public partial class BattleActor : MonoBehaviour
     /// <summary>
     /// BP를 사용한 스킬 실행
     /// </summary>
-    public void UseSkillWithBP(AdvancedSkillData skillData, BattleActor target, bool autoUpgrade = true)
+    public async UniTask UseSkillWithBP(AdvancedSkillData skillData, BattleActor target, bool autoUpgrade = true)
     {
         if (skillData == null || target == null) return;
 
@@ -436,14 +501,14 @@ public partial class BattleActor : MonoBehaviour
         }
 
         // 기존 스킬 사용 로직
-        UseSkill(skillData, target);
+        await UseSkill(skillData, target);
     }
 
 
     /// <summary>
     /// 그룹 대상 스킬 사용
     /// </summary>
-    public void UseSkillOnGroup(AdvancedSkillData skillData, List<BattleActor> targets)
+    public async UniTask UseSkillOnGroup(AdvancedSkillData skillData, List<BattleActor> targets)
     {
         if (skillManager == null)
         {
@@ -468,8 +533,9 @@ public partial class BattleActor : MonoBehaviour
         // 스킬 적용
         skillManager.ApplySkillToGroup(skillData, this, targets);
 
-        // 스킬 이펙트 시각화
-        PlaySkillVisualEffect(skillData);
+        // Timeline 실행 및 대기
+        await PlaySkillTimeline(skillData.skillId);
+
     }
 
     /// <summary>
@@ -585,53 +651,8 @@ public partial class BattleActor : MonoBehaviour
     /// <summary>
     /// 스킬 시각 효과 재생
     /// </summary>
-    private void PlaySkillVisualEffect(AdvancedSkillData skillData)
-    {
-        if (skillData == null)
-            return;
 
-        // 이펙트 프리팹이 있으면 재생
-        if (skillData.effectPrefab != null)
-        {
-            var effect = Instantiate(skillData.effectPrefab, transform.position, Quaternion.identity);
-            Destroy(effect, 3f); // 3초 후 제거
-        }
-
-        // 사운드 이펙트가 있으면 재생
-        if (skillData.soundEffect != null)
-        {
-            var audioSource = GetComponent<AudioSource>();
-            if (audioSource != null)
-            {
-                audioSource.PlayOneShot(skillData.soundEffect);
-            }
-        }
-
-        // 아이콘 표시 (UI)
-        if (skillData.icon != null)
-        {
-            // UI 매니저를 통한 스킬 아이콘 표시
-            Debug.Log($"[BattleActor] Showing skill icon: {skillData.skillName}");
-        }
-    }
-
-    /// <summary>
-    /// 이펙트 재생 (기존 시스템 활용)
-    /// </summary>
-    private void PlayEffect(string effectPath, float duration)
-    {
-        if (BattleProcessManagerNew.Instance?.battleObjectPoolSupport == null)
-            return;
-
-        var effect = BattleProcessManagerNew.Instance.battleObjectPoolSupport.ShowEffect(
-            transform,
-            effectPath,
-            duration > 0 ? duration : 2f // 기본 2초
-        );
-
-        Debug.Log($"[BattleActor] Playing effect: {effectPath} for {duration}s");
-    }
-
+  
     /// <summary>
     /// 상태이상 아이콘 표시
     /// </summary>

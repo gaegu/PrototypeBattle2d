@@ -22,7 +22,6 @@ namespace Cosmos.Timeline.Playback
         private IResourceProvider resourceProvider;
 
         // ===== Battle 모드 추가 =====
-        private bool isBattleMode = false;
         private BattleActor battleActor = null;
 
 
@@ -48,6 +47,8 @@ namespace Cosmos.Timeline.Playback
         // 설정
         [SerializeField] private bool debugMode = true;
 
+        private bool initialize = false;
+
         #endregion
 
         #region Initialization
@@ -66,42 +67,58 @@ namespace Cosmos.Timeline.Playback
             if (actor == null) return;
 
             battleActor = actor;
-            isBattleMode = true;
 
             // Battle 모드에서는 BattleActor의 컴포넌트 사용
             targetObject = actor.gameObject;
             targetTransform = actor.transform;
-            targetAnimator = actor.GetComponent<Animator>();
 
-            // Battle에서는 AddressableResourceProvider 대신 null 사용
-            // (BattleEffectManager가 처리)
-            resourceProvider = null;
+            if (targetAnimator == null)
+            {
+                targetAnimator = actor.GetComponent<Animator>();
+                if (targetAnimator == null)
+                    targetAnimator = actor.gameObject.AddComponent<Animator>();
+            }
+
+            // Resource Provider 찾기
+            resourceProvider = GetComponent<IResourceProvider>();
+            if (resourceProvider == null)
+            {
+                // 없으면 생성
+                resourceProvider = gameObject.AddComponent<AddressableResourceProvider>();
+                Debug.Log("[EventHandler] Created new ResourceProvider");
+            }
+
+            // Generic Controller 로드
+            LoadGenericController();
 
             if (debugMode)
                 Debug.Log($"[TimelineEventHandler] Initialized for Battle: {actor.name}");
+
+            initialize = true;
         }
 
         #endregion
 
 
-        private void Initialize()
+        public void Initialize()
         {
-            // Animator 찾기
-            targetAnimator = GetComponent<Animator>();
+            if (initialize == true) return;
+
             if (targetAnimator == null)
             {
-                targetAnimator = GetComponentInChildren<Animator>();
+                // Animator 찾기
+                targetAnimator = GetComponent<Animator>();
+                if (targetAnimator == null)
+                {
+                    targetAnimator = GetComponentInChildren<Animator>();
+                }
+
+                if (targetAnimator == null)
+                    targetAnimator = this.gameObject.AddComponent<Animator>();
             }
 
             targetTransform = transform;
             targetObject = gameObject;
-
-            // AudioSource 설정
-            audioSource = GetComponent<AudioSource>();
-            if (audioSource == null)
-            {
-                audioSource = gameObject.AddComponent<AudioSource>();
-            }
 
             // Resource Provider 찾기
             resourceProvider = GetComponent<IResourceProvider>();
@@ -205,14 +222,14 @@ namespace Cosmos.Timeline.Playback
         {
             if (trackAnim.animationClip == null || targetAnimator == null)
             {
-                Debug.LogWarning($"[EventHandler] Cannot play track animation: clip or animator is null");
+                Debug.LogWarning($"[EventHandler] Cannot play track animation: clip or animator is null {targetAnimator} / {trackAnim.animationClip}");
                 return;
             }
 
 
-            Debug.LogError($"Target GameObject: {targetAnimator.gameObject.name}");
-            string path = AnimationUtility.CalculateTransformPath(targetAnimator.transform, targetAnimator.transform.root);
-            Debug.LogError($"Target Path: {path}");
+            // Animator 상태 확인
+            Debug.LogError($"[HandleTrackAnimation] Animator enabled: {targetAnimator.enabled}");
+            Debug.LogError($"[HandleTrackAnimation] Current Controller: {targetAnimator.runtimeAnimatorController?.name}");
 
 
             ApplyAnimationClipOverride(trackAnim.animationClip, trackAnim.trackName);
@@ -237,18 +254,20 @@ namespace Cosmos.Timeline.Playback
                 }
             }
 
+            
             // Override Controller 생성
+          
             overrideController = new AnimatorOverrideController(genericController);
 
-
             // Override 가능한 클립 목록 가져오기
+             
             var overrides = new List<KeyValuePair<AnimationClip, AnimationClip>>();
+              
             overrideController.GetOverrides(overrides);
 
-            // State 개수 확인
             int stateCount = overrides.Count;
+              
             Debug.LogError($"[EventHandler] Override Controller has {stateCount} states");
-
 
             // "GenericClip" State에 클립 할당
             overrideController["GenericClip"] = clip;
@@ -257,7 +276,13 @@ namespace Cosmos.Timeline.Playback
             targetAnimator.runtimeAnimatorController = overrideController;
 
             // 재생
-            targetAnimator.Play("GenericClip", 0, 1f);
+            targetAnimator.Play("GenericClip", 0, 0f);
+            
+
+            Debug.LogError($"targetAnimator.Play : {clip.name}");
+
+            // 강제 업데이트
+            targetAnimator.Update(0f);
 
             clipCache[stateName] = clip;
 

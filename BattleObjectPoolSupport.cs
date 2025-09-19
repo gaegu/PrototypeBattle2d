@@ -162,9 +162,6 @@ public class BattleObjectPoolSupport : MonoBehaviour
             return null;
         }
 
-        Debug.LogError($"[CreateBattleActor] Load time for {battleCharInfo.GetAddressableKey()}: {sw.ElapsedMilliseconds}ms");
-
-
         // 인스턴스 생성 (기존 코드와 동일)
         GameObject newObjectInstance = GameObject.Instantiate(newObjectPrefab);
         newObjectInstance.transform.SetParent(actorParent);

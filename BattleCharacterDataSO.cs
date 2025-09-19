@@ -6,6 +6,7 @@ using CharacterSystem;
 using BattleCharacterSystem.Timeline;
 using System.Linq;
 using static BattleCharacterSystem.BattleCharacterDataSO;
+using UnityEngine.Timeline;
 
 
 namespace BattleCharacterSystem
@@ -37,6 +38,11 @@ namespace BattleCharacterSystem
         [Header("===== 스킬 =====")]
         [SerializeField] private int activeSkillId;  // 액티브 스킬 ID
         [SerializeField] private int passiveSkillId; // 패시브 스킬 ID
+
+        // Timeline을 스킬 섹션에 추가
+        [SerializeField] private TimelineDataSO activeSkillTimeline;
+        [SerializeField] private TimelineDataSO passiveSkillTimeline;
+
 
         [Header("===== 진형 =====")]
         [SerializeField] private FormationPreference formationPreference = FormationPreference.Flexible;
@@ -91,6 +97,11 @@ namespace BattleCharacterSystem
         public string CharacterResourceName => characterResourceName;
 
         public string AddressableKey => addressableKey;
+
+        // Properties 추가
+        public TimelineDataSO ActiveSkillTimeline => activeSkillTimeline;
+        public TimelineDataSO PassiveSkillTimeline => passiveSkillTimeline;
+
 
         // ===== Methods =====
 
@@ -276,9 +287,6 @@ namespace BattleCharacterSystem
             [Header("기본 Timeline")]
             public TimelineDataSO attack1Timeline;
 
-            [Header("스킬 Timeline")]
-            public TimelineDataSO activeSkill1Timeline;
-            public TimelineDataSO passiveSkill1Timeline;
 
             [Header("커스텀 Timeline")]
             public List<CustomTimelineEntry> customTimelines = new List<CustomTimelineEntry>();
@@ -299,12 +307,6 @@ namespace BattleCharacterSystem
                     case "attack1":
                     case "attack":
                         return attack1Timeline;
-                    case "activeskill1":
-                    case "activeskill":
-                        return activeSkill1Timeline;
-                    case "passiveskill1":
-                    case "passiveskill":
-                        return passiveSkill1Timeline;
                 }
 
                 var custom = customTimelines.FirstOrDefault(x =>

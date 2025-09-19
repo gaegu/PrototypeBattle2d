@@ -1099,7 +1099,6 @@ public partial class BattleProcessManagerNew : MonoBehaviour
         foreach (var ally in allyActors.Where(a => !a.IsDead))
         {
             ally.SetState(BattleActorState.Victory);
-            ally.SetAnimation(BattleActorAnimation.Idle);
         }
         await UniTask.Delay(2000);
     }

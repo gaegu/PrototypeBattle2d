@@ -36,7 +36,9 @@ public enum BattleActorState
     Idle,
     MoveToAttackPoint,
     Attack,
-    BackToStartPoint,
+    ReturnToStartPoint,
+    Skill,
+    Hit,
     Dead,
     Victory,
 }

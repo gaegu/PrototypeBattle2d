@@ -1548,9 +1548,9 @@ public class BattlePreviewWindow : EditorWindow
             if (GUILayout.Button("Attack1"))
                 playbackAdapter.PlayTimeline(previewCharacter.TimelineSettings.attack1Timeline);
             if (GUILayout.Button("ActiveSkill1"))
-                playbackAdapter.PlayTimeline(previewCharacter.TimelineSettings.activeSkill1Timeline);
+                playbackAdapter.PlayTimeline(previewCharacter.ActiveSkillTimeline);
             if (GUILayout.Button("PassiveSkill1"))
-                playbackAdapter.PlayTimeline(previewCharacter.TimelineSettings.passiveSkill1Timeline);
+                playbackAdapter.PlayTimeline(previewCharacter.PassiveSkillTimeline);
 
         }
 

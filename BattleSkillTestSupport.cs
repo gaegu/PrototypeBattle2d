@@ -206,7 +206,7 @@ public class BattleSkillTestSupport : MonoBehaviour
             if (actor?.BattleActorInfo != null)
             {
                 actor.BattleActorInfo.Hp = actor.BattleActorInfo.MaxHp;
-                actor.SetAnimation(BattleActorAnimation.Idle);
+                actor.SetState(BattleActorState.Idle);
                 LogStatus($"Reset {actor.name} state");
             }
         }
@@ -413,11 +413,11 @@ public class BattleSkillTestSupport : MonoBehaviour
             // 스킬 사용
             if (targets.Count == 1)
             {
-                testSender.UseSkill(skillData, targets[0]);
+                await testSender.UseSkill(skillData, targets[0]);
             }
             else
             {
-                testSender.UseSkillOnGroup(skillData, targets);
+                await testSender.UseSkillOnGroup(skillData, targets);
             }
 
             LogDetailed($"  Skill executed via BattleActor");

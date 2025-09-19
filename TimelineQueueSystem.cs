@@ -63,6 +63,7 @@ namespace Cosmos.Timeline.Playback
             {
                 playbackSystem = gameObject.AddComponent<CosmosPlaybackSystem>();
             }
+            playbackSystem.InitializeSystem();
 
             // 이벤트 연결
             playbackSystem.OnPlaybackFinished += OnCurrentTimelineFinished;

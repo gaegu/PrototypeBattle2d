@@ -99,19 +99,6 @@ using UnityEngine;
     private BattleActorTagUI actorTag = null;  // 태그 UI 컴포넌트 참조
 
 
-    // 움직임 기반 애니메이션 관련 필드
-    [Header("Movement Animation Settings")]
-    [SerializeField] private bool enableMovementAnimation = true;  // 기능 on/off
-    [SerializeField] private float idleResetTime = 0.5f;          // Idle 전환 대기 시간
-    [SerializeField] private float movementThreshold = 0.001f;     // 움직임 감지 임계값
-
-    // 내부 상태 추적
-    private Vector3 lastFramePosition;
-    private float idleTimer = 0f;
-    private bool wasMoving = false;
-
-
-
     // 원래 방향을 저장할 변수 추가 (클래스 상단에)
     private bool originalFlipX;
 
@@ -150,9 +137,6 @@ using UnityEngine;
     {
         spriteSheetAnimation.SafeSetActive(true);
         captionLoader.SafeSetActive(false);
-
-        // 움직임 추적 초기화 추가
-        lastFramePosition = transform.position;
 
 
         BattleActorInfo = battleCharInfo;
@@ -212,7 +196,21 @@ using UnityEngine;
             guardianStoneSystem.Initialize(this, battleCharInfo, actorTag);
         }
 
+
+        InitializeActorBehaviour();
+
+        SetState(BattleActorState.Idle);
+
     }
+
+
+    // 새로운 메서드 추가
+    private void InitializeActorBehaviour()
+    {
+        actorBehaviour.Reset();
+        actorBehaviour.SetPlay(false);
+    }
+
 
     private void InitializeSpriteRenderer()
     {
@@ -407,90 +405,13 @@ using UnityEngine;
 
 
 
-    public void SetState(BattleActorState onState)
-    {
-        State = onState;
-
-        
-       // SetAnimation(onState);
-    }
-
     private void Update()
     {
-        StartUpdateState();
+        UpdateStateBehaviour();
 
         // 스킬 매니저 업데이트 추가
         UpdateSkillSystem();
-
-        // 움직임 기반 애니메이션 업데이트 추가
-        if (enableMovementAnimation && !isMoving)  // MoveToPosition 중이 아닐 때만
-        {
-            HandleMovementAnimation();
-        }
     }
-
-    /// <summary>
-    /// 움직임 감지 및 애니메이션 자동 전환
-    /// </summary>
-    private void HandleMovementAnimation()
-    {
-        // 전투 중이거나 특정 상태에서는 무시
-        if (State == BattleActorState.Attack ||
-            State == BattleActorState.Dead)
-        {
-            return;
-        }
-
-        Vector3 currentPosition = transform.position;
-        float horizontalMovement = Mathf.Abs(currentPosition.x - lastFramePosition.x);
-        bool isCurrentlyMoving = horizontalMovement > movementThreshold;
-
-        // 움직임 시작
-        if (isCurrentlyMoving && !wasMoving)
-        {
-            idleTimer = 0f;
-            SetAnimation(BattleActorAnimation.Walk);
-            wasMoving = true;
-        }
-        // 움직임 중지
-        else if (!isCurrentlyMoving && wasMoving)
-        {
-            idleTimer = 0f;
-            wasMoving = false;
-        }
-        // 정지 상태 지속
-        else if (!isCurrentlyMoving && !wasMoving)
-        {
-            idleTimer += Time.deltaTime;
-
-            // Idle로 전환
-            if (idleTimer >= idleResetTime && State != BattleActorState.Idle)
-            {
-                SetState(BattleActorState.Idle);
-                SetAnimation(BattleActorAnimation.Idle);
-            }
-        }
-
-        // 이동 중 방향 전환 처리 (기존 flip 로직 활용)
-        if (isCurrentlyMoving)
-        {
-            float direction = currentPosition.x - lastFramePosition.x;
-            if (Mathf.Abs(direction) > movementThreshold)
-            {
-                bool shouldFlipX = BattleActorInfo.IsAlly ?
-                    (direction > 0) : (direction < 0);
-
-                if (spriteSheetAnimation.GetFlip().flipX != shouldFlipX)
-                {
-                    spriteSheetAnimation.SetFlip(shouldFlipX, false);
-                    SetLookDirection();
-                }
-            }
-        }
-
-        lastFramePosition = currentPosition;
-    }
-
 
 
     public virtual void SetAnimation(BattleActorAnimation animationState)
@@ -502,37 +423,8 @@ using UnityEngine;
         }
 
         spriteSheetAnimation.SetAnimation(animationState.ToString());
-
-        // 애니메이션 변경 시 타이머 리셋
-        if (enableMovementAnimation)
-        {
-            if (animationState == BattleActorAnimation.Walk)
-            {
-                wasMoving = true;
-                idleTimer = 0f;
-            }
-            else if (animationState == BattleActorAnimation.Idle)
-            {
-                wasMoving = false;
-            }
-        }
     }
 
-    private void StartUpdateState()
-    {
-        if (!actorBehaviour.IsPlay)
-            return;
-
-        if (actorBehaviour.IsEnded)
-            SetBehaviour();
-
-        actorBehaviour.Start();
-
-        if (actorBehaviour.CheckComplete())
-            actorBehaviour.End();
-        else
-            actorBehaviour.Process(Time.deltaTime);
-    }
 
 
     public async UniTask ShowCaption(string text, float duration)
@@ -557,21 +449,13 @@ using UnityEngine;
     }
 
 
-    // 클래스 상단에 속도 배율 변수 추가
-    public float attackMoveSpeedMultiplier = 2.5f;  // 공격 이동 속도 배율
-    public float returnMoveSpeedMultiplier = 5f;  // 복귀 이동 속도 배율
 
     // 특정 위치로 이동
-    public async UniTask MoveToPosition(Vector3 targetPosition, bool returnToOriginalDirection = false)
+   /*public async UniTask MoveToPosition(Vector3 targetPosition, bool returnToOriginalDirection = false)
     {
         if (isMoving) return;
 
         isMoving = true;
-
-        // 움직임 애니메이션 시스템 일시 정지
-        wasMoving = false;
-        idleTimer = 0f;
-
 
         SetState(BattleActorState.MoveToAttackPoint);
         SetAnimation(BattleActorAnimation.Walk);
@@ -613,11 +497,10 @@ using UnityEngine;
             spriteSheetAnimation.SetFlip(originalFlipX, false);
         }
 
-        SetAnimation(BattleActorAnimation.Idle);
+        SetState(BattleActorState.Idle);
         isMoving = false;
 
-        // 위치 업데이트 (움직임 감지 초기화)
-        lastFramePosition = transform.position;
-    }
+    }*/
+
 
 }

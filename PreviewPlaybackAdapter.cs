@@ -60,11 +60,13 @@ namespace Cosmos.Timeline.Playback.Editor
             {
                 playbackSystem = gameObject.AddComponent<CosmosPlaybackSystem>();
             }
+            playbackSystem.InitializeSystem();
 
             // Preview용 EventHandler
             if (previewEventHandler == null)
             {
                 previewEventHandler = gameObject.AddComponent<PreviewEventHandler>();
+                previewEventHandler.Initialize();
                 previewEventHandler.SetTarget(previewTarget);
 
                 // ResourceProvider 설정 추가
@@ -73,6 +75,10 @@ namespace Cosmos.Timeline.Playback.Editor
                     previewResourceProvider = gameObject.AddComponent<PreviewResourceProvider>();
                 }
                 previewEventHandler.SetResourceProvider(previewResourceProvider);
+            }
+            else
+            {
+                previewEventHandler.Initialize();
             }
 
             // Preview용 ResourceProvider

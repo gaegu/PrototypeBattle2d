@@ -16,6 +16,11 @@ public class BattleSkillManager
     // 대기 큐 (다음 프레임에 적용될 스킬들)
     private Queue<AdvancedSkillRuntime> pendingSkills = new Queue<AdvancedSkillRuntime>();
 
+
+    // 기존 필드에 추가
+    private List<AdvancedSkillData> ownedSkills = new List<AdvancedSkillData>(); // 소유 스킬 추가
+
+
     // 활성 스킬 관리
     private Dictionary<int, List<AdvancedSkillRuntime>> skillsById = new Dictionary<int, List<AdvancedSkillRuntime>>();
     private List<AdvancedSkillRuntime> activeSkills = new List<AdvancedSkillRuntime>();
@@ -52,6 +57,30 @@ public class BattleSkillManager
     #endregion
 
     #region Main API - Skill Application
+
+
+    // 소유 스킬 관리 메서드 추가
+    public void RegisterOwnedSkill(AdvancedSkillData skillData)
+    {
+        if (skillData == null || ownedSkills.Contains(skillData)) return;
+        ownedSkills.Add(skillData);
+        Debug.Log($"[SkillManager] Registered owned skill: {skillData.skillName}");
+    }
+
+    public List<AdvancedSkillData> GetOwnedSkills()
+    {
+        return new List<AdvancedSkillData>(ownedSkills);
+    }
+
+    public AdvancedSkillData GetOwnedSkillById(int skillId)
+    {
+        return ownedSkills.Find(s => s.skillId == skillId);
+    }
+
+
+
+
+
 
     /// <summary>
     /// 테스트용 스킬 직접 추가 메서드

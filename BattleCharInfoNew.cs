@@ -1758,31 +1758,10 @@ public partial class BattleCharInfoNew
         Character = character;
 
 
-
         CharacterTable characterTable = TableManager.Instance.GetTable<CharacterTable>();
         CharacterData = characterTable.GetDataByID(character.DataId);
         CharacterDataID = CharacterData.GetID();
         characterBaseData = new CharacterDataWrapper(CharacterData);
-
-
-        //isMonster
-       /* if (battleInfo.IsArena == false && isAlly == false )
-        {
-            MonsterTable monsterTable = TableManager.Instance.GetTable<MonsterTable>();
-            MonsterData = monsterTable.GetDataByID(character.DataId);
-            CharacterDataID = MonsterData.GetID();
-
-            characterBaseData = new CharacterDataWrapper(MonsterData);
-        }
-        else
-        {
-            CharacterTable characterTable = TableManager.Instance.GetTable<CharacterTable>();
-            CharacterData = characterTable.GetDataByID(character.DataId);
-            CharacterDataID = CharacterData.GetID();
-            characterBaseData = new CharacterDataWrapper(CharacterData);
-
-        }*/
-
 
  
         SetDefalutCharacterPrefab();
@@ -1805,52 +1784,12 @@ public partial class BattleCharInfoNew
         float fDefence = baseDefence * PenaltyValue;
         float fHp = baseHp * PenaltyValue;
 
-      //  if (battleInfo.BattleDungeonType == DungeonType.SkillMaterialDungeon && IsAlly)  //방화벽 던전에서 아군에게만 속성버프 적용
-       //     fAttack *= 1.0f + battleInfo.GetElementAtkBuffRatio(character.Element);
-
         Attack = (int)Math.Round(fAttack);
         Defence = (int)Math.Round(fDefence);
         Hp = (int)Math.Round(fHp);
         MaxHp = Hp;
         CriRate = character.GetFinalStat(CharacterStatType.CriRate).FloatStatValue;
         CriDmg = character.GetFinalStat(CharacterStatType.CriDmg).FloatStatValue;
-
-
-
-
-
-
-
-
-      //  Hit = character.GetFinalStat(CharacterStatType.Hit).FloatStatValue;
-
-       /* if (WeakInfo == null)
-        {
-            WeakInfo = new BattleWeakInfo();
-        }
-
-        if (battleInfo.BattleDungeonType == DungeonType.Arena)
-        {
-            WeakInfo.SetWeakElement(character.Element);
-            WeakInfo.SetWeakPointType((BreakType)character.WeakPoint);
-            WeakInfo.SetAttackWeakPointType(character.AttackWeakPointType);
-        }
-        else
-        {
-            if (!isAlly)
-            {
-                WeakInfo.SetWeakElementByDungeonWeakElement(battleInfo.WeakElement);
-                WeakInfo.SetWeakPointType(battleInfo.WeakPointType);
-                WeakInfo.SetAttackWeakPointType(character.AttackWeakPointType);
-            }
-            else
-            {
-                WeakInfo.SetWeakElement(character.Element);
-                WeakInfo.SetWeakPointType((BreakType)character.WeakPoint);
-                WeakInfo.SetAttackWeakPointType(character.AttackWeakPointType);
-            }
-        }
-       */
 
 
         if (DamageTracker == null)

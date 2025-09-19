@@ -6,6 +6,7 @@ using BattleCharacterSystem;
 using BattleCharacterSystem.Timeline;
 using Cosmos.Timeline.Playback;
 using Cosmos.Timeline.Playback.Editor;
+using Cysharp.Threading.Tasks;
 
 /// <summary>
 /// Timeline 재생 컨트롤러 윈도우
@@ -815,9 +816,9 @@ public class CosmosTimelineController : EditorWindow
 
             if (settings.attack1Timeline != null)
                 options.Add("Attack1");
-            if (settings.activeSkill1Timeline != null)
+            if (selectedCharacter.ActiveSkillTimeline != null)
                 options.Add("ActiveSkill1");
-            if (settings.passiveSkill1Timeline != null)
+            if (selectedCharacter.PassiveSkillTimeline != null)
                 options.Add("PassiveSkill1");
 
             // 커스텀 타임라인 추가
@@ -848,7 +849,24 @@ public class CosmosTimelineController : EditorWindow
         // TimelineConfig에서 가져오기
         if (selectedCharacter?.TimelineSettings != null)
         {
-            currentTimeline = selectedCharacter.TimelineSettings.GetTimelineByState(timelineName);
+
+            switch (timelineName.ToLower())
+            {
+                case "activeskill1":
+                case "activeskill":
+                    currentTimeline = selectedCharacter.ActiveSkillTimeline;
+                    break;
+
+                case "passiveskill1":
+                case "passiveskill":
+                    currentTimeline = selectedCharacter.PassiveSkillTimeline;
+                    break;
+
+                default:
+                    currentTimeline = selectedCharacter.TimelineSettings.GetTimelineByState(timelineName);
+                    break;
+            }
+
         }
 
         if (currentTimeline != null)
@@ -972,7 +990,7 @@ public class CosmosTimelineController : EditorWindow
         if (playbackSystemObj != null && playbackSystemObj.gameObject != null)
         {
             playbackSystemObj.gameObject.name = $"[PLAYBACK] {selectedCharacter.CharacterName}";
-            // HideFlags 제거
+            playbackSystemObj.InitializeSystem();
         }
 
         // EventHandler의 GameObject도 표시
@@ -980,7 +998,7 @@ public class CosmosTimelineController : EditorWindow
         if (eventHandler != null && eventHandler.gameObject != null)
         {
             eventHandler.gameObject.name = $"[EVENTS] {selectedCharacter.CharacterName}";
-            // HideFlags 제거
+            eventHandler.Initialize();
         }
 
         // PlaybackSystem 직접 접근을 위해 잠시 대기
@@ -1414,7 +1432,7 @@ public class CosmosTimelineController : EditorWindow
                 // animationClipAddressableKey가 있으면 로드 시도
                 else if (!string.IsNullOrEmpty(trackAnim.animationClipAddressableKey))
                 {
-                    LoadAndCacheTrackAnimation(trackAnim);
+                    LoadAndCacheTrackAnimation(trackAnim).Forget();
                 }
             }
         }
@@ -1538,7 +1556,7 @@ public class CosmosTimelineController : EditorWindow
         }
     }
 
-    private void LoadAndCacheTrackAnimation(TimelineDataSO.TrackAnimation trackAnim)
+    private async UniTask LoadAndCacheTrackAnimation(TimelineDataSO.TrackAnimation trackAnim)
     {
         string key = trackAnim.animationClipAddressableKey;
 
@@ -1546,6 +1564,16 @@ public class CosmosTimelineController : EditorWindow
         if (cachedAnimationClips.ContainsKey(key))
         {
             trackAnim.animationClip = cachedAnimationClips[key];
+            return;
+        }
+
+
+        AnimationClip clip = await ResourceLoadHelper.LoadAssetAsync<AnimationClip>(key);
+        if (clip != null)
+        {
+            cachedAnimationClips[key] = clip;
+            trackAnim.animationClip = clip;
+            Debug.Log($"Loaded track animation from: {key}");
             return;
         }
 
@@ -1561,7 +1589,7 @@ public class CosmosTimelineController : EditorWindow
 
             foreach (string path in searchPaths)
             {
-                AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
+                clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
                 if (clip != null)
                 {
                     cachedAnimationClips[key] = clip;
@@ -1577,7 +1605,7 @@ public class CosmosTimelineController : EditorWindow
         if (guids.Length > 0)
         {
             string path = AssetDatabase.GUIDToAssetPath(guids[0]);
-            AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
+            clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
             if (clip != null)
             {
                 cachedAnimationClips[key] = clip;

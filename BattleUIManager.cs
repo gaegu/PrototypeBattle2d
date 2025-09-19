@@ -5,6 +5,8 @@ using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using DamageNumbersPro;
+using SkillSystem;
+using System.Linq;
 
 public class BattleUIManager : MonoBehaviour
 {
@@ -391,20 +393,7 @@ public class BattleUIManager : MonoBehaviour
             }
             else
             {
-                // 쿨다운 중인 경우 디버그 정보 출력
-                var allSkills = currentActor.SkillManager.GetAllActiveSkills();
-                if (allSkills.Count > 0)
-                {
-                    foreach (var skill in allSkills)
-                    {
-                        int remaining = currentActor.CooldownManager.GetRemainingCooldown(skill.SkillID);
-                        Debug.LogWarning($"[BattleUIManager] Skill {skill.SkillName} on cooldown: {remaining} turns remaining");
-                    }
-                }
-                else
-                {
-                    Debug.LogWarning("[BattleUIManager] No active skills available");
-                }
+                return;
             }
         }
 
@@ -601,29 +590,35 @@ public class BattleUIManager : MonoBehaviour
     {
         if (actor == null) return;
 
-        var info = actor.BattleActorInfo;
-        if (info == null) return;
+        // GetActiveSkillCount() 대신 소유 스킬 체크
+        var ownedSkills = actor.SkillManager.GetOwnedSkills();
+        var activeSkills = ownedSkills.Where(s =>
+            s.category != SkillSystem.SkillCategory.Passive &&
+            s.category != SkillSystem.SkillCategory.SpecialPassive).ToList();
 
-        if ( actor.SkillManager.GetActiveSkillCount() > 0 )
+        if (activeSkills.Count > 0)
         {
             skillButton.gameObject.SetActive(true);
 
-            AdvancedSkillRuntime activeSkill = actor.GetAvailableActiveSkill();
+            // 첫 번째 사용 가능한 스킬 찾기
+            AdvancedSkillData availableSkill = activeSkills.FirstOrDefault(s =>
+                actor.CooldownManager.CanUseSkill(s.skillId));
 
-            if (activeSkill == null) return;
-
-
-            bool canUseSkill = actor.CooldownManager.CanUseSkill(activeSkill.SkillID) && !actor.IsSilenced;
-            skillButton.interactable = canUseSkill;
-
-            skillButtonText.text = activeSkill.SkillName;
-
-            if ( canUseSkill == false )
+            if (availableSkill != null)
             {
-                skillButtonText.text += "- Remain Turn : " + actor.CooldownManager.GetRemainingCooldown(activeSkill.SkillID).ToString();
+                bool canUseSkill = !actor.IsSilenced;
+                skillButton.interactable = canUseSkill;
+                skillButtonText.text = availableSkill.skillName;
+            }
+            else
+            {
+                // 모든 스킬이 쿨다운 중
+                skillButton.interactable = false;
+                var firstSkill = activeSkills[0];
+                int remainTurn = actor.CooldownManager.GetRemainingCooldown(firstSkill.skillId);
+                skillButtonText.text = $"{firstSkill.skillName} - Remain Turn: {remainTurn}";
             }
 
-            // 비활성화된 버튼 시각적 표시
             var buttonImage = skillButton.GetComponent<Image>();
             if (buttonImage != null)
             {
