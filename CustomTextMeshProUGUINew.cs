@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 [ExecuteAlways]
-public class CustomTextMeshPro : TextMeshPro
+public class CustomTextMeshProUGUINew : TextMeshProUGUI
 {
     public static string Language = string.Empty;
 
@@ -49,13 +49,10 @@ public class CustomTextMeshPro : TextMeshPro
         Rebuild(CanvasUpdate.PreRender);
 
         // CanvasRenderer 갱신 강제 호출
-        if (canvasRenderer)
-        {
-            canvasRenderer.SetMesh(mesh);
+        canvasRenderer.SetMesh(mesh);
 
-            // 강제적으로 메시를 업데이트
-            UpdateGeometry();
-        }
+        // 강제적으로 메시를 업데이트
+        UpdateGeometry();
 
         FindFontPath();
     }
@@ -81,7 +78,6 @@ public class CustomTextMeshPro : TextMeshPro
             materialForRenderingPath = UnityEditor.AssetDatabase.GetAssetPath(fontSharedMaterial);
 
         string materialForRenderingName = System.IO.Path.GetFileNameWithoutExtension(materialForRenderingPath);
-
         if (string.IsNullOrEmpty(materialForRenderingPath)) // 경로 예외처리 추가
             return;
 
@@ -147,9 +143,8 @@ public class CustomTextMeshPro : TextMeshPro
         defaultFont = $"Font/{language}/Countach-Bold/Countach-BoldSDF_Asset";
 
 // #if UNITY_EDITOR
-//         // 어차피 Fallback으로 Kor에 없으면 Eng껄 찾아다 쓴다.
-//         loadFontPath = $"Font/Kor/{fontPath}".Trim();
-//         loadMaterialPath = $"Font/Kor/{materialPath}".Trim();
+//         loadFontPath = $"Font/Eng/{fontPath}".Trim();
+//         loadMaterialPath = $"Font/Eng/{materialPath}".Trim();
 // #else
         loadFontPath = $"Font/{language}/{fontPath}".Trim();
         loadMaterialPath = $"Font/{language}/{materialPath}".Trim();
@@ -157,13 +152,98 @@ public class CustomTextMeshPro : TextMeshPro
         return true;
     }
 
+
+    /// <summary>
+    /// 폴더 경로를 Addressable Address로 변환
+    /// 예: "Font/Kor/Gamer/Gamer-SDF_Asset" → "Fonts_Kor_Gamer-SDF_Asset"
+    /// </summary>
+    public static string ConvertPathToAddress(string path)
+    {
+        // 경로 정규화 (백슬래시를 슬래시로)
+        path = path.Replace('\\', '/');
+
+        // 확장자 제거 (필요한 경우)
+        string pathWithoutExt = System.IO.Path.GetFileNameWithoutExtension(path);
+        string fileName = System.IO.Path.GetFileName(pathWithoutExt);
+
+        // 경로 분석
+        string[] parts = path.Split('/');
+
+        // Font 폴더 특별 처리
+        if (parts.Length >= 2 && parts[0].ToLower() == "font")
+        {
+            // Font → Fonts 변경
+            string category = "Fonts";
+
+            // 언어 타입 (Kor, Eng 등)
+            string lang = parts.Length > 1 ? parts[1] : "";
+
+            // 마지막 파일명
+            string file = fileName;
+
+            // 조합: Fonts_Kor_FileName
+            return $"{category}_{lang}_{file}";
+        }
+
+        // 다른 경로의 경우 기본 처리
+        // Characters/Player/Player_Battle.prefab → Character_Player_Battle
+        if (parts.Length >= 2 && parts[0] == "Characters")
+        {
+            return $"Character_{parts[1]}_{fileName}";
+        }
+
+        // UI/Battle/HUD.prefab → UI_Battle_HUD
+        if (parts.Length >= 2 && parts[0] == "UI")
+        {
+            return $"UI_{parts[1]}_{fileName}";
+        }
+
+        // 기본: 폴더명_파일명
+        if (parts.Length >= 2)
+        {
+            return $"{parts[0]}_{fileName}";
+        }
+
+        return fileName;
+    }
+
     private async UniTask LoadFont()
     {
+        // Builtin폰트 적용(영어가 아니고 어드레서블 패치가 완료되지 않으면 빌트인폰트로 변경)
+        if (Application.isPlaying && !UtilModel.Resources.IsAddressablesUpdateComplete && language != "Eng")
+        {
+            string builtinFontPath = fontPath;
+            int lastSlash = builtinFontPath.LastIndexOf('/');
+            if (lastSlash >= 0 && lastSlash + 1 < builtinFontPath.Length)
+            {
+                builtinFontPath = builtinFontPath.Insert(lastSlash + 1, "(Builtin)");
+            }
+            builtinFontPath = $"Font/{language}/{builtinFontPath}";
+            
+            font = Resources.Load<TMP_FontAsset>(builtinFontPath);
+
+            if (font == null)
+            {
+                Debug.LogError($"Fallback폰트 로드에 실패했습니다. builtinFontPath:{builtinFontPath}");
+            }
+           
+            return;
+        }
+        
         TMP_FontAsset loadFont = null;
         if (UtilModel.Resources.Exists(loadFontPath))
         {
-            loadFont = await UtilModel.Resources.LoadAsync<TMP_FontAsset>(loadFontPath, this);
+
+            loadFont = await GameCore.Addressables.AddressableManager.Instance.LoadAssetAsync<TMP_FontAsset>(ConvertPathToAddress(loadFontPath));
+            if (loadFont == null)
+            {
+                Debug.LogError("##  GameCore.Addressables.AddressableManager font not exist " + ConvertPathToAddress(loadFontPath));
+            }
+
+            if ( loadFont == null )
+                loadFont = await UtilModel.Resources.LoadAsync<TMP_FontAsset>(loadFontPath, this);
         }
+
 
         if (loadFont == null)
         {
