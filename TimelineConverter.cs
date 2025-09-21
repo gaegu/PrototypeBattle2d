@@ -195,6 +195,11 @@ namespace BattleCharacterSystem.Editor
                     ParseCinemachineTrack(track, timelineData);
                     Debug.Log($"[TimelineConverter] Found CinemachineTrack: {track.name}");
                 }
+                else if (track.GetType().Name == "FMODEventTrack")
+                {
+                    ParseFMODEventTrack(track, timelineData, timelineAsset);
+                    Debug.Log($"[TimelineConverter] Found FMODEventTrack: {track.name}");
+                }
                 else
                 {
                     // 다른 트랙 타입은 무시
@@ -269,6 +274,73 @@ namespace BattleCharacterSystem.Editor
 #endif
             return null;
         }
+
+
+
+        // 새 메서드 추가
+        private static void ParseFMODEventTrack(TrackAsset track, TimelineDataSO timelineData, TimelineAsset timelineAsset)
+        {
+            var clips = track.GetClips();
+
+            foreach (var clip in clips)
+            {
+                // Reflection으로 FMODEventPlayable 데이터 추출
+                var playableAsset = clip.asset;
+                if (playableAsset == null) continue;
+
+                var type = playableAsset.GetType();
+
+                // eventReference 필드 추출
+                var eventRefField = type.GetField("eventReference") ?? type.GetField("EventReference");
+                if (eventRefField == null) continue;
+
+                var eventRef = eventRefField.GetValue(playableAsset);
+                string eventPath = "";
+
+                // FMOD.GUID에서 경로 추출
+                var pathField = eventRef?.GetType().GetField("Path");
+                if (pathField != null)
+                {
+                    eventPath = pathField.GetValue(eventRef) as string;
+                }
+
+                if (string.IsNullOrEmpty(eventPath)) continue;
+
+                var soundEvent = new TimelineDataSO.SoundEvent
+                {
+                    triggerTime = (float)clip.start,
+                    soundEventPath = eventPath,
+                    followTarget = false, // 기본값
+                    positionOffset = Vector3.zero
+                };
+
+                // 파라미터 추출 시도
+                var parametersField = type.GetField("parameters");
+                if (parametersField != null)
+                {
+                    var paramArray = parametersField.GetValue(playableAsset) as Array;
+                    if (paramArray != null)
+                    {
+                        foreach (var param in paramArray)
+                        {
+                            var nameField = param.GetType().GetField("Name");
+                            var valueField = param.GetType().GetField("Value");
+
+                            if (nameField != null && valueField != null)
+                            {
+                                string name = nameField.GetValue(param) as string;
+                                float value = Convert.ToSingle(valueField.GetValue(param));
+                                soundEvent.parameters[name] = value;
+                            }
+                        }
+                    }
+                }
+
+                timelineData.soundEvents.Add(soundEvent);
+                Debug.Log($"[TimelineConverter] Added FMOD event: {soundEvent.soundEventPath} at {soundEvent.triggerTime}s");
+            }
+        }
+
 
         /// <summary>
         /// CosmosAnimationTrack 파싱

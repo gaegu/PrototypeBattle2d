@@ -100,10 +100,14 @@ namespace BattleCharacterSystem.Timeline
         public class SoundEvent : ITimelineEvent
         {
             public float triggerTime;
-            public string soundEventPath; // FMOD 이벤트 경로 또는 AudioClip 키
-            public float volume = 1f;
-            public bool is3D = false;
+            public string soundEventPath; // FMOD 이벤트 경로 (event:/SFX/Battle/Hit)
+            public Dictionary<string, float> parameters = new Dictionary<string, float>(); // FMOD 파라미터
+            public bool followTarget = false; // 3D 위치 추적 여부  
             public Vector3 positionOffset;
+
+            // FMOD 전용 필드 추가
+            public float minDistance = 1f;
+            public float maxDistance = 20f;
 
             public float TriggerTime => triggerTime;
         }

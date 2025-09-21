@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using BattleCharacterSystem.Timeline;
 using Cinemachine;  // 추가
+using FMODUnity;
+using FMOD.Studio;
+
 
 
 namespace Cosmos.Timeline.Playback
@@ -33,8 +36,9 @@ namespace Cosmos.Timeline.Playback
         private Dictionary<string, Coroutine> effectCoroutines = new Dictionary<string, Coroutine>();
 
         // 사운드 관리
-        private AudioSource audioSource;
-        private Dictionary<string, AudioSource> activeSounds = new Dictionary<string, AudioSource>();
+        private Dictionary<string, FMOD.Studio.EventInstance> activeFMODInstances = new Dictionary<string, FMOD.Studio.EventInstance>();
+        private Dictionary<string, Transform> followTargets = new Dictionary<string, Transform>(); // 3D 추적용
+
 
         // 이벤트
         public event Action<TimelineDataSO.ITimelineEvent> OnEventTriggered;
@@ -568,22 +572,13 @@ namespace Cosmos.Timeline.Playback
                     return;
                 }
 
-                // FMOD 이벤트인지 AudioClip인지 구분
-                if (soundEvent.soundEventPath.StartsWith("event:/"))
-                {
-                    // FMOD 처리 (확장 가능)
-                    PlayFMODSound(soundEvent);
-                }
-                else
-                {
-                    // Unity AudioClip 처리
-                    PlayUnitySound(soundEvent);
-                }
+                // FMOD 이벤트 생성
+                PlayFMODSound(soundEvent);
 
                 OnEventCompleted?.Invoke(soundEvent);
 
                 if (debugMode)
-                    Debug.Log($"[EventHandler] Sound played: {soundEvent.soundEventPath}");
+                    Debug.Log($"[EventHandler] FMOD played: {soundEvent.soundEventPath}");
             }
             catch (Exception e)
             {
@@ -593,48 +588,71 @@ namespace Cosmos.Timeline.Playback
 
         private void PlayFMODSound(TimelineDataSO.SoundEvent soundEvent)
         {
-            // FMOD 통합 시 구현
-            Debug.Log($"[EventHandler] FMOD event would play: {soundEvent.soundEventPath}");
-        }
-
-        private void PlayUnitySound(TimelineDataSO.SoundEvent soundEvent)
-        {
-            if (resourceProvider == null) return;
-
-            resourceProvider.LoadResourceAsync<AudioClip>(
-                soundEvent.soundEventPath,
-                clip => PlayAudioClip(clip, soundEvent)
-            );
-        }
-
-        private void PlayAudioClip(AudioClip clip, TimelineDataSO.SoundEvent soundEvent)
-        {
-            if (clip == null) return;
-
-            AudioSource source = audioSource;
-
-            // 3D 사운드 처리
-            if (soundEvent.is3D)
+            try
             {
-                // 위치에 AudioSource 생성
-                GameObject soundObject = new GameObject($"Sound_{clip.name}");
-                soundObject.transform.position = targetTransform.position + soundEvent.positionOffset;
+                // FMOD 이벤트 인스턴스 생성
+                var eventInstance = FMODUnity.RuntimeManager.CreateInstance(soundEvent.soundEventPath);
 
-                source = soundObject.AddComponent<AudioSource>();
-                source.clip = clip;
-                source.spatialBlend = 1f; // 3D
-                source.volume = soundEvent.volume;
-                source.Play();
+                if (!eventInstance.isValid())
+                {
+                    Debug.LogError($"[EventHandler] Failed to create FMOD instance: {soundEvent.soundEventPath}");
+                    return;
+                }
 
-                // 재생 완료 후 제거
-                Destroy(soundObject, clip.length);
+                // 파라미터 설정
+                if (soundEvent.parameters != null)
+                {
+                    foreach (var param in soundEvent.parameters)
+                    {
+                        eventInstance.setParameterByName(param.Key, param.Value);
+                    }
+                }
+
+                // 3D 위치 설정
+                if (soundEvent.followTarget)
+                {
+                    Transform target = targetTransform;
+                    if (battleActor != null)
+                    {
+                        target = battleActor.transform;
+                    }
+
+                    var attributes = FMODUnity.RuntimeUtils.To3DAttributes(
+                        target.position + soundEvent.positionOffset
+                    );
+                    eventInstance.set3DAttributes(attributes);
+
+                    // min/max distance 설정
+                    eventInstance.setProperty(FMOD.Studio.EVENT_PROPERTY.MINIMUM_DISTANCE, soundEvent.minDistance);
+                    eventInstance.setProperty(FMOD.Studio.EVENT_PROPERTY.MAXIMUM_DISTANCE, soundEvent.maxDistance);
+
+                    // 추적 대상 저장
+                    string instanceKey = $"{soundEvent.soundEventPath}_{Time.time}";
+                    followTargets[instanceKey] = target;
+                    activeFMODInstances[instanceKey] = eventInstance;
+                }
+                else
+                {
+                    // 2D 사운드
+                    string instanceKey = $"{soundEvent.soundEventPath}_{Time.time}";
+                    activeFMODInstances[instanceKey] = eventInstance;
+                }
+
+                // 재생 시작
+                eventInstance.start();
+
+                if (debugMode)
+                    Debug.Log($"[EventHandler] FMOD started: {soundEvent.soundEventPath}");
             }
-            else
+            catch (Exception e)
             {
-                // 2D 사운드
-                source.PlayOneShot(clip, soundEvent.volume);
+                Debug.LogError($"[EventHandler] FMOD playback failed: {e.Message}");
             }
         }
+
+
+
+
 
         #endregion
 
@@ -802,6 +820,76 @@ namespace Cosmos.Timeline.Playback
             if (debugMode)
                 Debug.Log($"[EventHandler] Restored camera priorities after {delay}s with blend: {blendOutDuration}s");
         }
+
+        void Update()
+        {
+            UpdateFMOD3DPositions();
+        }
+
+        private void UpdateFMOD3DPositions()
+        {
+            if (!Application.isPlaying) return;
+
+            List<string> toRemove = new List<string>();
+
+            foreach (var kvp in activeFMODInstances)
+            {
+                var instance = kvp.Value;
+
+                // 인스턴스 유효성 체크
+                if (!instance.isValid())
+                {
+                    toRemove.Add(kvp.Key);
+                    continue;
+                }
+
+                // 재생 상태 체크
+                FMOD.Studio.PLAYBACK_STATE state;
+                instance.getPlaybackState(out state);
+
+                if (state == FMOD.Studio.PLAYBACK_STATE.STOPPED)
+                {
+                    instance.release();
+                    toRemove.Add(kvp.Key);
+                    continue;
+                }
+
+                // 3D 위치 업데이트
+                if (followTargets.ContainsKey(kvp.Key))
+                {
+                    var target = followTargets[kvp.Key];
+                    if (target != null)
+                    {
+                        var attributes = FMODUnity.RuntimeUtils.To3DAttributes(target.position);
+                        instance.set3DAttributes(attributes);
+                    }
+                }
+            }
+
+            // 정리
+            foreach (var key in toRemove)
+            {
+                activeFMODInstances.Remove(key);
+                followTargets.Remove(key);
+            }
+        }
+
+        // 5. Cleanup 메서드 추가 (CleanupAllEffects 아래)
+        public void CleanupFMODInstances()
+        {
+            foreach (var kvp in activeFMODInstances)
+            {
+                if (kvp.Value.isValid())
+                {
+                    kvp.Value.stop(FMOD.Studio.STOP_MODE.IMMEDIATE);
+                    kvp.Value.release();
+                }
+            }
+            activeFMODInstances.Clear();
+            followTargets.Clear();
+        }
+
+
 
 
         private void StartCameraShake(TimelineDataSO.CameraEvent cameraEvent)
@@ -1017,6 +1105,7 @@ namespace Cosmos.Timeline.Playback
         private void OnDestroy()
         {
             CleanupAllEffects();
+            CleanupFMODInstances();
         }
 
         #endregion

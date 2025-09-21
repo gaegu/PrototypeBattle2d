@@ -1,3 +1,7 @@
+using BattleCharacterSystem.Timeline;
+using Cosmos.Audio.FMOD;
+using Cysharp.Threading.Tasks;
+using FMOD.Studio;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,6 +28,12 @@ namespace Cosmos.Timeline.Playback
 
         // 활성 인스턴스 추적
         private Dictionary<GameObject, string> activeInstances = new Dictionary<GameObject, string>();
+
+
+        private FMODAddressableManager fmodManager;
+        private HashSet<string> preloadedFMODBanks = new HashSet<string>();
+
+
 
         // 설정
         [SerializeField] private bool usePooling = true;
@@ -69,9 +79,15 @@ namespace Cosmos.Timeline.Playback
             lastCleanupTime = Time.time;
         }
 
+        private void InitializeFMOD()
+        {
+            fmodManager = FMODAddressableManager.Instance;
+        }
+
         #endregion
 
         #region Resource Loading
+
 
         public void LoadResourceAsync<T>(string key, Action<T> onLoaded) where T : UnityEngine.Object
         {
@@ -221,6 +237,151 @@ namespace Cosmos.Timeline.Playback
             if (debugMode)
                 Debug.Log($"[ResourceProvider] Cleared all preloaded resources");
         }
+
+
+        /// <summary>
+        /// Timeline의 FMOD 리소스 프리로드
+        /// </summary>
+        public async UniTask PreloadFMODResources(TimelineDataSO timeline)
+        {
+            if (timeline == null || timeline.soundEvents == null) return;
+
+            // 필요한 Bank 수집
+            var requiredBanks = new HashSet<string>();
+
+            foreach (var soundEvent in timeline.soundEvents)
+            {
+                // Event Path에서 Bank 추론
+                string bankKey = ExtractBankFromEventPath(soundEvent.soundEventPath);
+                if (!string.IsNullOrEmpty(bankKey))
+                {
+                    requiredBanks.Add(bankKey);
+                }
+
+                // 명시적 Bank 키가 있으면 사용
+                /*if (!string.IsNullOrEmpty(soundEvent.fmodBankKey))
+                {
+                    requiredBanks.Add(soundEvent.fmodBankKey);
+                }*/
+
+            }
+
+            // Bank 로드
+            var loadTasks = new List<UniTask<bool>>();
+            foreach (var bankKey in requiredBanks)
+            {
+                if (!preloadedFMODBanks.Contains(bankKey))
+                {
+                    loadTasks.Add(LoadFMODBankAsync(bankKey));
+                }
+            }
+
+            if (loadTasks.Count > 0)
+            {
+                var results = await UniTask.WhenAll(loadTasks);
+
+                if (debugMode)
+                {
+                    int successCount = results.Count(r => r);
+                    Debug.Log($"[ResourceProvider] Preloaded {successCount}/{loadTasks.Count} FMOD banks");
+                }
+            }
+        }
+
+        /// <summary>
+        /// FMOD Bank 로드
+        /// </summary>
+        private async UniTask<bool> LoadFMODBankAsync(string bankKey)
+        {
+            if (fmodManager == null)
+            {
+                InitializeFMOD();
+            }
+
+            bool success = await fmodManager.LoadBankAsync(bankKey);
+
+            if (success)
+            {
+                preloadedFMODBanks.Add(bankKey);
+            }
+
+            return success;
+        }
+
+        /// <summary>
+        /// FMOD Event Instance 생성
+        /// </summary>
+        public EventInstance CreateFMODInstance(string eventPath)
+        {
+            if (fmodManager == null)
+            {
+                InitializeFMOD();
+            }
+
+            return fmodManager.CreateInstance(eventPath);
+        }
+
+        /// <summary>
+        /// FMOD Instance 풀로 반환
+        /// </summary>
+        public void ReturnFMODInstance(EventInstance instance)
+        {
+            if (fmodManager != null)
+            {
+                fmodManager.ReturnToPool(instance);
+            }
+        }
+
+        /// <summary>
+        /// Event Path에서 Bank 이름 추출
+        /// </summary>
+        private string ExtractBankFromEventPath(string eventPath)
+        {
+            if (string.IsNullOrEmpty(eventPath)) return "";
+
+            // event:/Category/Subcategory/EventName 형식 파싱
+            if (eventPath.StartsWith("event:/"))
+            {
+                string[] parts = eventPath.Substring(7).Split('/');
+
+                if (parts.Length >= 2)
+                {
+                    // Category_Subcategory 형식으로 Bank 이름 생성
+                    if (parts[0].Equals("UI", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return "UI_Common";
+                    }
+                    else if (parts[0].Equals("Battle", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return parts.Length > 2 ? $"Battle_{parts[1]}" : "Battle_Common";
+                    }
+                    else if (parts[0].Equals("Character", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return parts.Length > 2 ? $"Char_{parts[1]}_Skills" : "Character_Common";
+                    }
+                }
+            }
+
+            return "";
+        }
+
+        /// <summary>
+        /// FMOD 리소스 정리
+        /// </summary>
+        public void CleanupFMODResources()
+        {
+            foreach (var bankKey in preloadedFMODBanks)
+            {
+                if (fmodManager != null)
+                {
+                    fmodManager.UnloadBank(bankKey);
+                }
+            }
+
+            preloadedFMODBanks.Clear();
+        }
+
+
 
         #endregion
 
@@ -491,6 +652,10 @@ namespace Cosmos.Timeline.Playback
                 }
             }
             loadedResources.Clear();
+
+            // FMOD 리소스 정리 추가
+            CleanupFMODResources();
+
 
             if (debugMode)
                 Debug.Log("[ResourceProvider] All resources released");

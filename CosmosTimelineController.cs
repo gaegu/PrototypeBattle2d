@@ -413,6 +413,25 @@ public class CosmosTimelineController : EditorWindow
 
         EditorGUILayout.Space(5);
 
+        // 클릭 가능 영역 시각화
+        Rect clickArea = new Rect(
+            timelineRect.x,
+            timelineRect.y,
+            timelineRect.width,
+            30
+        );
+
+        // 반투명 오버레이로 클릭 영역 표시
+        EditorGUI.DrawRect(clickArea, new Color(1, 1, 1, 0.05f));
+
+        // 호버 효과
+        if (clickArea.Contains(Event.current.mousePosition))
+        {
+            EditorGUI.DrawRect(clickArea, new Color(1, 1, 1, 0.1f));
+            EditorGUIUtility.AddCursorRect(clickArea, MouseCursor.SlideArrow);
+        }
+
+
         // Timeline 영역 계산
         Rect timelineArea = GUILayoutUtility.GetRect(
             GUIContent.none,
@@ -513,9 +532,9 @@ public class CosmosTimelineController : EditorWindow
 
             Rect markerRect = new Rect(
                 startX,
-                timelineRect.y + 35,  // Track 애니메이션 아래에 표시
+                timelineRect.y + 40,  // Track 애니메이션 아래에 표시
                 width,
-                EVENT_MARKER_HEIGHT
+                15
             );
 
             Color markerColor = GetEventColor(evt);
@@ -560,9 +579,9 @@ public class CosmosTimelineController : EditorWindow
 
                 Rect markerRect = new Rect(
                     startX,
-                    timelineRect.y + 5,
+                    timelineRect.y + 25,
                     width,
-                    EVENT_MARKER_HEIGHT + 5
+                    15
                 );
 
                 // Track 애니메이션 색상 설정
@@ -680,9 +699,31 @@ public class CosmosTimelineController : EditorWindow
                 break;
 
             case TimelineDataSO.SoundEvent soundEvent:
-                EditorGUILayout.LabelField("-- Sound Event --", EditorStyles.miniBoldLabel);
-                EditorGUILayout.LabelField($"Sound Path: {soundEvent.soundEventPath}");
-                EditorGUILayout.LabelField($"Volume: {soundEvent.volume:F2}");
+                EditorGUILayout.LabelField("-- Sound Event (FMOD) --", EditorStyles.miniBoldLabel);
+                EditorGUILayout.LabelField($"Event Path: {soundEvent.soundEventPath}");
+
+                // FMOD 파라미터 표시
+                if (soundEvent.parameters != null && soundEvent.parameters.Count > 0)
+                {
+                    EditorGUILayout.LabelField("FMOD Parameters:", EditorStyles.miniBoldLabel);
+                    foreach (var param in soundEvent.parameters)
+                    {
+                        EditorGUILayout.LabelField($"  {param.Key}: {param.Value:F2}");
+                    }
+                }
+                else
+                {
+                    EditorGUILayout.LabelField("Parameters: None");
+                }
+
+                // 3D 설정
+                EditorGUILayout.LabelField($"Follow Target: {soundEvent.followTarget}");
+                if (soundEvent.followTarget)
+                {
+                    EditorGUILayout.LabelField($"Position Offset: {soundEvent.positionOffset}");
+                    EditorGUILayout.LabelField($"Min Distance: {soundEvent.minDistance:F1}");
+                    EditorGUILayout.LabelField($"Max Distance: {soundEvent.maxDistance:F1}");
+                }
                 break;
 
             case TimelineDataSO.CameraEvent cameraEvent:
@@ -727,7 +768,26 @@ public class CosmosTimelineController : EditorWindow
             case EventType.MouseDown:
                 if (e.button == 0)
                 {
-                    // 마커 클릭 체크
+                    // 1. 타임라인 상단 영역을 클릭 전용으로 확보
+                    Rect clickableArea = new Rect(
+                        timelineRect.x,
+                        timelineRect.y,
+                        timelineRect.width,
+                        30  // 상단 30픽셀은 클릭 전용
+                    );
+
+                    // 2. 타임라인 클릭을 먼저 체크
+                    if (clickableArea.Contains(e.mousePosition))
+                    {
+                        isDraggingTimeline = true;
+                        UpdateTimeFromMouse(e.mousePosition.x);
+                        selectedMarker = null;
+                        showEventInfo = false;
+                        e.Use();
+                        return;  // 즉시 리턴
+                    }
+
+                    // 3. 마커는 하단 영역에서만 체크
                     bool markerClicked = false;
                     foreach (var marker in eventMarkers)
                     {
@@ -736,15 +796,13 @@ public class CosmosTimelineController : EditorWindow
                             selectedMarker = marker;
                             showEventInfo = true;
                             markerClicked = true;
-
-                            // 해당 이벤트 시간으로 이동
                             SetTime(marker.startTime);
                             e.Use();
                             break;
                         }
                     }
 
-                    // 타임라인 클릭 (마커가 아닌 곳)
+                    // 4. 나머지 타임라인 영역 클릭
                     if (!markerClicked && timelineRect.Contains(e.mousePosition))
                     {
                         isDraggingTimeline = true;
@@ -1844,7 +1902,9 @@ public class CosmosTimelineController : EditorWindow
         {
             TimelineDataSO.AnimationEvent animEvent => animEvent.animationStateName,
             TimelineDataSO.EffectEvent effectEvent => System.IO.Path.GetFileNameWithoutExtension(effectEvent.effectAddressableKey),
-            TimelineDataSO.SoundEvent soundEvent => "SFX",
+            TimelineDataSO.SoundEvent soundEvent =>
+    soundEvent.soundEventPath.StartsWith("event:/") ?
+    soundEvent.soundEventPath.Split('/').Last() : "SFX",
             TimelineDataSO.CameraEvent cameraEvent => cameraEvent.actionType == TimelineDataSO.CameraActionType.VirtualCameraSwitch && !string.IsNullOrEmpty(cameraEvent.virtualCameraName) ?
             $"CAM: {cameraEvent.virtualCameraName}" :
             cameraEvent.actionType.ToString(),
@@ -1859,7 +1919,10 @@ public class CosmosTimelineController : EditorWindow
         {
             TimelineDataSO.AnimationEvent animEvent => $"Animation: {animEvent.animationStateName}\nTime: {animEvent.TriggerTime:F2}s",
             TimelineDataSO.EffectEvent effectEvent => $"Effect: {effectEvent.effectAddressableKey}\nTime: {effectEvent.TriggerTime:F2}s",
-            TimelineDataSO.SoundEvent soundEvent => $"Sound: {soundEvent.soundEventPath}\nTime: {soundEvent.TriggerTime:F2}s",
+            TimelineDataSO.SoundEvent soundEvent =>
+    $"FMOD: {soundEvent.soundEventPath}\n" +
+    $"Time: {soundEvent.TriggerTime:F2}s\n" +
+    $"3D: {(soundEvent.followTarget ? "Yes" : "No")}",
             TimelineDataSO.CameraEvent cameraEvent => cameraEvent.actionType == TimelineDataSO.CameraActionType.VirtualCameraSwitch ?
             $"Virtual Camera: {cameraEvent.virtualCameraName}\nTime: {cameraEvent.TriggerTime:F2}s\nDuration: {cameraEvent.duration:F2}s" :
             $"Camera: {cameraEvent.actionType}\nTime: {cameraEvent.TriggerTime:F2}s",

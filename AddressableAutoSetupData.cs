@@ -253,6 +253,79 @@ new MappingRule
 },
 
 
+//===============================
+// FMOD Banks 규칙 추가
+new MappingRule
+{
+    pattern = "_Core/MasterBank/*.bank.bytes",
+    groupNameTemplate = "FMOD_Core",
+    isLocal = true,
+    compression = "LZ4",
+    includeInBuild = true,
+    addressTemplate = "FMODBanks/_Core/MasterBank/{filename}",
+    autoLabels = new List<string> { "fmod", "core", "audio" },
+    priority = 1
+},
+new MappingRule
+{
+    pattern = "FMODBanks/Character/*.bank.bytes",
+    groupNameTemplate = "FMOD_Character",
+    isLocal = false,
+    compression = "LZ4",
+    includeInBuild = true,
+    addressTemplate = "FMODBanks/Character/{filename}",
+    autoLabels = new List<string> { "fmod", "character", "audio" },
+    priority = 3
+},
+new MappingRule
+{
+    pattern = "FMODBanks/Battle/*.bank.bytes",
+    groupNameTemplate = "FMOD_Battle",
+    isLocal = false,
+    compression = "LZ4",
+    includeInBuild = true,
+    addressTemplate = "FMODBanks/Battle/{filename}",
+    autoLabels = new List<string> { "fmod", "battle", "audio" },
+    priority = 3
+},
+new MappingRule
+{
+    pattern = "FMODBanks/UI/*.bank.bytes",
+    groupNameTemplate = "FMOD_UI",
+    isLocal = false,
+    compression = "LZ4",
+    includeInBuild = true,
+    addressTemplate = "FMODBanks/UI/{filename}",
+    autoLabels = new List<string> { "fmod", "ui", "audio" },
+    priority = 3
+},
+new MappingRule
+{
+    pattern = "FMODBanks/Music/*.bank.bytes",
+    groupNameTemplate = "FMOD_Music",
+    isLocal = false,
+    compression = "LZ4",
+    includeInBuild = true,
+    addressTemplate = "FMODBanks/Music/{filename}",
+    autoLabels = new List<string> { "fmod", "music", "audio" },
+    priority = 3
+},
+new MappingRule
+{
+    pattern = "FMODBanks/**/*.bank.bytes",  // Fallback for any other banks
+    groupNameTemplate = "FMOD_Banks",
+    isLocal = false,
+    compression = "LZ4",
+    includeInBuild = true,
+    addressTemplate = "FMODBanks/{filename}",
+    autoLabels = new List<string> { "fmod", "audio" },
+    priority = 4
+},
+
+
+
+
+
 
 
                 }
@@ -412,6 +485,11 @@ new MappingRule
 
         public const string RULES_FILE = "Assets/Cosmos/AddressableAssetsData/MappingRules.json";
         public const string PROFILES_FILE = "Assets/Cosmos/AddressableAssetsData/AutomationProfiles.json";
+
+        // FMOD Banks 경로
+        public const string FMOD_BANKS_PATH = "Assets/Cosmos/ResourcesAddressable/FMODBanks";
+        public const string FMOD_MASTER_PATH = "Assets/Cosmos/ResourcesAddressable/_Core/MasterBank";
+
     }
 }
 #endif

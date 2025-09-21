@@ -1,4 +1,7 @@
 #if UNITY_EDITOR
+using DG.Tweening.Plugins.Core.PathCore;
+using FMOD.Studio;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,8 +12,6 @@ using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 using UnityEngine;
-using Newtonsoft.Json;
-using DG.Tweening.Plugins.Core.PathCore;
 
 namespace GameCore.Editor.Addressables
 {
@@ -138,6 +139,59 @@ namespace GameCore.Editor.Addressables
 
             return scriptableObjects;
         }
+
+
+        /// <summary>
+        /// FMOD Banks 감지
+        /// </summary>
+        public static Dictionary<string, List<string>> DetectFMODBanks()
+        {
+            var banks = new Dictionary<string, List<string>>();
+
+            // Master Banks
+            if (Directory.Exists(AddressableSetupConstants.FMOD_MASTER_PATH))
+            {
+                var masterBanks = Directory.GetFiles(AddressableSetupConstants.FMOD_MASTER_PATH, "*.bank.bytes", SearchOption.TopDirectoryOnly);
+                if (masterBanks.Length > 0)
+                {
+                    banks["Master"] = masterBanks.ToList();
+                    Debug.Log($"[AutoSetup] Found {masterBanks.Length} Master banks");
+                }
+            }
+
+            // Regular Banks
+            if (Directory.Exists(AddressableSetupConstants.FMOD_BANKS_PATH))
+            {
+                // Character Banks
+                var charBanks = Directory.GetFiles(AddressableSetupConstants.FMOD_BANKS_PATH, "Char_*.bank.bytes", SearchOption.AllDirectories)
+                    .Where(f => !f.Contains("_Core")).ToList();
+                if (charBanks.Count > 0)
+                    banks["Character"] = charBanks;
+
+                // Battle Banks  
+                var battleBanks = Directory.GetFiles(AddressableSetupConstants.FMOD_BANKS_PATH, "Battle_*.bank.bytes", SearchOption.AllDirectories)
+                    .Where(f => !f.Contains("_Core")).ToList();
+                if (battleBanks.Count > 0)
+                    banks["Battle"] = battleBanks;
+
+                // UI Banks
+                var uiBanks = Directory.GetFiles(AddressableSetupConstants.FMOD_BANKS_PATH, "UI_*.bank.bytes", SearchOption.AllDirectories)
+                    .Where(f => !f.Contains("_Core")).ToList();
+                if (uiBanks.Count > 0)
+                    banks["UI"] = uiBanks;
+
+                // Music Banks
+                var musicBanks = Directory.GetFiles(AddressableSetupConstants.FMOD_BANKS_PATH, "Music_*.bank.bytes", SearchOption.AllDirectories)
+                    .Where(f => !f.Contains("_Core")).ToList();
+                if (musicBanks.Count > 0)
+                    banks["Music"] = musicBanks;
+
+                Debug.Log($"[AutoSetup] Found FMOD banks - Char: {charBanks.Count}, Battle: {battleBanks.Count}, UI: {uiBanks.Count}, Music: {musicBanks.Count}");
+            }
+
+            return banks;
+        }
+
 
         /// <summary>
         /// ScriptableObject 카테고리별 분류
@@ -434,6 +488,42 @@ namespace GameCore.Editor.Addressables
                         CreateGroup(groupName, rule);
                         created++;
                         Debug.Log($"[AutoSetup] Created SO group: {groupName}");
+                    }
+                }
+            }
+
+
+            // FMOD Banks groups
+            var fmodBanks = DetectFMODBanks();
+
+            // Master Bank group
+            if (fmodBanks.ContainsKey("Master") && fmodBanks["Master"].Count > 0)
+            {
+                string groupName = "FMOD_Core";
+                if (!Settings.groups.Any(g => g.name == groupName))
+                {
+                    var rule = rules.rules.Find(r => r.groupNameTemplate == groupName);
+                    if (rule != null)
+                    {
+                        CreateGroup(groupName, rule);
+                        created++;
+                        Debug.Log($"[AutoSetup] Created FMOD group: {groupName}");
+                    }
+                }
+            }
+
+            // Other FMOD groups
+            foreach (var category in fmodBanks.Keys.Where(k => k != "Master"))
+            {
+                string groupName = $"FMOD_{category}";
+                if (!Settings.groups.Any(g => g.name == groupName))
+                {
+                    var rule = rules.rules.Find(r => r.groupNameTemplate == groupName);
+                    if (rule != null)
+                    {
+                        CreateGroup(groupName, rule);
+                        created++;
+                        Debug.Log($"[AutoSetup] Created FMOD group: {groupName}");
                     }
                 }
             }

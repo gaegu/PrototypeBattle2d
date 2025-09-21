@@ -614,6 +614,24 @@ namespace GameCore.Editor.Addressables
 
             EditorGUILayout.Space(5);
 
+
+            EditorGUILayout.Space(5);
+
+            // FMOD Banks 버튼 추가
+            EditorGUILayout.BeginHorizontal();
+
+            GUI.backgroundColor = new Color(0.7f, 0.3f, 0.8f); // 보라색
+            if (GUILayout.Button("🔊 Setup FMOD Banks", GUILayout.Height(35)))
+            {
+                SetupFMODBanks();
+            }
+            GUI.backgroundColor = Color.white;
+
+            EditorGUILayout.EndHorizontal();
+
+
+
+
             EditorGUILayout.BeginHorizontal();
 
             if (GUILayout.Button("Fix Duplicates"))
@@ -680,6 +698,224 @@ namespace GameCore.Editor.Addressables
 
 
         }
+
+        private void SetupFMODBanks()
+        {
+            Debug.Log("[AddressableAutoSetup] Starting FMOD Banks setup...");
+
+            if (settings == null)
+            {
+                EditorUtility.DisplayDialog("Error", "Addressable settings not found!", "OK");
+                return;
+            }
+
+            int processedCount = 0;
+            int errorCount = 0;
+
+            // 1. Master Bank 설정 (Core 그룹)
+            processedCount += SetupMasterBanks(ref errorCount);
+
+            // 2. 일반 Bank 설정 (FMOD_Banks 그룹)
+            processedCount += SetupGeneralBanks(ref errorCount);
+
+            // 설정 저장
+            EditorUtility.SetDirty(settings);
+            AssetDatabase.SaveAssets();
+
+            Debug.Log($"[AddressableAutoSetup] FMOD setup complete! Processed: {processedCount}, Errors: {errorCount}");
+            EditorUtility.DisplayDialog("FMOD Banks Setup",
+                $"Setup complete!\nProcessed: {processedCount} banks\nErrors: {errorCount}", "OK");
+
+            // 감지 결과 갱신
+            RunAutoDetection();
+        }
+
+        /// <summary>
+        /// Master Bank 설정
+        /// </summary>
+        private int SetupMasterBanks(ref int errorCount)
+        {
+            string masterBankPath = "Assets/Cosmos/ResourcesAddressable/_Core/MasterBank";
+            int count = 0;
+
+            // Core 그룹 생성 또는 가져오기
+            var coreGroup = settings.FindGroup("FMOD_Core");
+            if (coreGroup == null)
+            {
+                // 기존 MappingRule 사용하거나 기본값
+                var rule = currentRules?.rules?.Find(r => r.groupNameTemplate == "FMOD_Core")
+                    ?? new MappingRule
+                    {
+                        groupNameTemplate = "FMOD_Core",
+                        compression = "LZ4",
+                        isLocal = true,
+                        includeInBuild = true
+                    };
+
+                coreGroup = AddressableAutoSetupCore.CreateGroup("FMOD_Core", rule);
+                Debug.Log("[AddressableAutoSetup] Created FMOD_Core group");
+            }
+
+            // Master Bank 파일들 처리
+            if (Directory.Exists(masterBankPath))
+            {
+                var bankFiles = Directory.GetFiles(masterBankPath, "*.bank", SearchOption.TopDirectoryOnly);
+
+                foreach (var bankFile in bankFiles)
+                {
+                    try
+                    {
+                        // .bank 파일을 .bytes로 변경
+                        string bytesPath = ConvertBankToBytes(bankFile);
+
+                        if (!string.IsNullOrEmpty(bytesPath))
+                        {
+                            var guid = AssetDatabase.AssetPathToGUID(bytesPath);
+                            var entry = settings.CreateOrMoveEntry(guid, coreGroup);
+
+                            // Address 설정
+                            string bankName = Path.GetFileNameWithoutExtension(bytesPath);
+                            entry.address = $"FMODBanks/_Core/MasterBank/{bankName}";
+
+                            // Label 설정
+                            entry.SetLabel("FMOD", true);
+                            entry.SetLabel("Core", true);
+
+                            count++;
+                            Debug.Log($"[AddressableAutoSetup] Added Master bank: {bankName}");
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogError($"[AddressableAutoSetup] Failed to process {bankFile}: {e.Message}");
+                        errorCount++;
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[AddressableAutoSetup] Master bank path not found: {masterBankPath}");
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        /// 일반 Bank 설정
+        /// </summary>
+        private int SetupGeneralBanks(ref int errorCount)
+        {
+            string banksPath = "Assets/Cosmos/ResourcesAddressable/FMODBanks";
+            int count = 0;
+
+            // FMOD_Banks 그룹 생성 또는 가져오기
+            var banksGroup = settings.FindGroup("FMOD_Banks");
+            if (banksGroup == null)
+            {
+                var rule = currentRules?.rules?.Find(r => r.groupNameTemplate == "FMOD_Banks")
+                    ?? new MappingRule
+                    {
+                        groupNameTemplate = "FMOD_Banks",
+                        compression = "LZ4",
+                        isLocal = false,
+                        includeInBuild = true
+                    };
+
+                banksGroup = AddressableAutoSetupCore.CreateGroup("FMOD_Banks", rule);
+                Debug.Log("[AddressableAutoSetup] Created FMOD_Banks group");
+            }
+
+            // Bank 파일들 처리
+            if (Directory.Exists(banksPath))
+            {
+                var bankFiles = Directory.GetFiles(banksPath, "*.bank", SearchOption.AllDirectories)
+                    .Where(f => !f.Contains("_Core")) // Master Bank 제외
+                    .ToArray();
+
+                foreach (var bankFile in bankFiles)
+                {
+                    try
+                    {
+                        // .bank 파일을 .bytes로 변경
+                        string bytesPath = ConvertBankToBytes(bankFile);
+
+                        if (!string.IsNullOrEmpty(bytesPath))
+                        {
+                            var guid = AssetDatabase.AssetPathToGUID(bytesPath);
+                            var entry = settings.CreateOrMoveEntry(guid, banksGroup);
+
+                            // Address 설정
+                            string bankName = Path.GetFileNameWithoutExtension(bytesPath);
+                            entry.address = $"FMODBanks/{bankName}";
+
+                            // Label 설정
+                            entry.SetLabel("FMOD", true);
+
+                            // 카테고리별 레이블 추가
+                            if (bankFile.Contains("Character") || bankFile.Contains("Char_"))
+                                entry.SetLabel("Character", true);
+                            else if (bankFile.Contains("Battle"))
+                                entry.SetLabel("Battle", true);
+                            else if (bankFile.Contains("UI"))
+                                entry.SetLabel("UI", true);
+                            else if (bankFile.Contains("Music"))
+                                entry.SetLabel("Music", true);
+                            else if (bankFile.Contains("Environment") || bankFile.Contains("Env_"))
+                                entry.SetLabel("Environment", true);
+
+                            count++;
+                            Debug.Log($"[AddressableAutoSetup] Added bank: {bankName}");
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogError($"[AddressableAutoSetup] Failed to process {bankFile}: {e.Message}");
+                        errorCount++;
+                    }
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[AddressableAutoSetup] Banks path not found: {banksPath}");
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        /// .bank 파일을 .bytes로 변환
+        /// </summary>
+        private string ConvertBankToBytes(string bankPath)
+        {
+            string bytesPath = bankPath + ".bytes";
+
+            // 이미 .bytes 파일이 있으면 업데이트 확인
+            if (File.Exists(bytesPath))
+            {
+                var bankTime = File.GetLastWriteTime(bankPath);
+                var bytesTime = File.GetLastWriteTime(bytesPath);
+
+                if (bytesTime >= bankTime)
+                {
+                    return bytesPath; // 이미 최신
+                }
+            }
+
+            // .bank 파일을 .bytes로 복사
+            try
+            {
+                File.Copy(bankPath, bytesPath, true);
+                AssetDatabase.ImportAsset(bytesPath);
+                return bytesPath;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[AddressableAutoSetup] Failed to convert {bankPath} to bytes: {e.Message}");
+                return null;
+            }
+        }
+
+
         #endregion
 
         #region UI - Validation Tab
