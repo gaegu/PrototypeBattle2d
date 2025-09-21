@@ -117,8 +117,16 @@ namespace BattleCharacterSystem.Timeline
             public float triggerTime;
             public CameraActionType actionType;
             public float duration = 0.5f;
+
             public float intensity = 1f;
             public AnimationCurve curve;
+
+
+            // Cinemachine 전용 필드 추가
+            public string virtualCameraName;       // 가상 카메라 이름 또는 Addressable 키
+            public float blendInDuration = 0f;     // 블렌드 인
+            public float blendOutDuration = 0f;    // 블렌드 아웃
+
 
             public float TriggerTime => triggerTime;
         }
@@ -158,6 +166,7 @@ namespace BattleCharacterSystem.Timeline
         public enum CameraActionType
         {
             None,
+            VirtualCameraSwitch,  // 추가
             Shake,
             Zoom,
             SlowMotion,
@@ -233,6 +242,17 @@ namespace BattleCharacterSystem.Timeline
                     {
                         requiredAddressableKeys.Add(trackAnim.animationClipAddressableKey);
                     }
+                }
+            }
+
+            // 카메라 이벤트 추가
+            foreach (var camera in cameraEvents)
+            {
+                if (!string.IsNullOrEmpty(camera.virtualCameraName))
+                {
+                    // VCam_ 프리픽스로 Addressable 키 생성
+                    string vcamKey = $"VCam_{camera.virtualCameraName}";
+                    requiredAddressableKeys.Add(vcamKey);
                 }
             }
 

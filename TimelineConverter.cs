@@ -7,6 +7,8 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Playables;
 using UnityEngine.Timeline;
+using Cinemachine;  // 추가
+
 
 namespace BattleCharacterSystem.Editor
 {
@@ -187,6 +189,11 @@ namespace BattleCharacterSystem.Editor
                 else if (track is GroupTrack groupTrack)
                 {
                     ParseGroupTrack(groupTrack, timelineData, timelineAsset);
+                }
+                else if (track.GetType().Name == "CinemachineTrack")  // 타입 이름으로 체크
+                {
+                    ParseCinemachineTrack(track, timelineData);
+                    Debug.Log($"[TimelineConverter] Found CinemachineTrack: {track.name}");
                 }
                 else
                 {
@@ -452,6 +459,68 @@ namespace BattleCharacterSystem.Editor
                 }
             }
         }
+
+        /// <summary>
+        /// CinemachineTrack 파싱
+        /// </summary>
+        private static void ParseCinemachineTrack(TrackAsset track, TimelineDataSO timelineData)
+        {
+            var clips = track.GetClips();
+
+            foreach (var clip in clips)
+            {
+                // CinemachineShot으로 캐스팅 (리플렉션 사용)
+                var clipAsset = clip.asset;
+                if (clipAsset.GetType().Name != "CinemachineShot")
+                {
+                    Debug.LogWarning($"[TimelineConverter] Clip is not CinemachineShot: {clip.displayName}");
+                    continue;
+                }
+
+                var cameraEvent = new TimelineDataSO.CameraEvent
+                {
+                    triggerTime = (float)clip.start,
+                    duration = (float)clip.duration,
+                    actionType = TimelineDataSO.CameraActionType.VirtualCameraSwitch,
+                    blendInDuration = (float)clip.blendInDuration,
+                    blendOutDuration = (float)clip.blendOutDuration
+                };
+
+                // VirtualCamera ExposedReference 처리
+                try
+                {
+                    var vcamProperty = clipAsset.GetType().GetField("VirtualCamera");
+                    if (vcamProperty != null)
+                    {
+                        dynamic exposedRef = vcamProperty.GetValue(clipAsset);
+                        if (exposedRef != null && exposedRef.defaultValue != null)
+                        {
+                            var vcam = exposedRef.defaultValue as CinemachineVirtualCameraBase;
+                            if (vcam != null)
+                            {
+                                cameraEvent.virtualCameraName = vcam.name;
+                                Debug.Log($"[TimelineConverter] Found VirtualCamera: {vcam.name}");
+                            }
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"[TimelineConverter] Failed to extract VirtualCamera: {e.Message}");
+                }
+
+                // 가상 카메라 이름이 없으면 클립 이름 사용
+                if (string.IsNullOrEmpty(cameraEvent.virtualCameraName))
+                {
+                    cameraEvent.virtualCameraName = clip.displayName;
+                }
+
+                timelineData.cameraEvents.Add(cameraEvent);
+                Debug.Log($"[TimelineConverter] Added camera event: {cameraEvent.virtualCameraName} at {cameraEvent.triggerTime}s");
+            }
+        }
+
+
 
         /// <summary>
         /// Asset 경로에서 Addressable 키 추출

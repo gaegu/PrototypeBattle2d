@@ -1,12 +1,14 @@
-using UnityEngine;
-using UnityEditor;
-using System.Collections.Generic;
-using System.Linq;
 using BattleCharacterSystem;
 using BattleCharacterSystem.Timeline;
+using Cinemachine;  // 추가
 using Cosmos.Timeline.Playback;
 using Cosmos.Timeline.Playback.Editor;
 using Cysharp.Threading.Tasks;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEditor;
+using UnityEngine;
+
 
 /// <summary>
 /// Timeline 재생 컨트롤러 윈도우
@@ -192,6 +194,8 @@ public class CosmosTimelineController : EditorWindow
                 // 애니메이션과 이펙트 업데이트
                 ApplyAnimationsAtTime(currentTime);
                 UpdateEffectSimulation(currentTime);
+                UpdateCameraEvents(currentTime);  // 추가
+
 
                 Repaint();
             }
@@ -683,6 +687,13 @@ public class CosmosTimelineController : EditorWindow
 
             case TimelineDataSO.CameraEvent cameraEvent:
                 EditorGUILayout.LabelField($"Camera Action: {cameraEvent.actionType}");
+                if (cameraEvent.actionType == TimelineDataSO.CameraActionType.VirtualCameraSwitch)
+                {
+                    EditorGUILayout.LabelField($"Virtual Camera: {cameraEvent.virtualCameraName}");
+                    EditorGUILayout.LabelField($"Blend In: {cameraEvent.blendInDuration:F2}s");
+                    EditorGUILayout.LabelField($"Blend Out: {cameraEvent.blendOutDuration:F2}s");
+                }
+                EditorGUILayout.LabelField($"Duration: {cameraEvent.duration:F2}s");
                 EditorGUILayout.LabelField($"Intensity: {cameraEvent.intensity}");
                 break;
 
@@ -1056,6 +1067,13 @@ public class CosmosTimelineController : EditorWindow
             previewInstance = null;
         }
 
+        // 카메라 Priority 복원
+        if (currentCameraEvent != null)
+        {
+            originalCameraPriorities.Clear();
+            currentCameraEvent = null;
+        }
+
         // 캐시된 AnimationClip 정리
         cachedAnimationClips.Clear();
 
@@ -1166,6 +1184,8 @@ public class CosmosTimelineController : EditorWindow
         {
             ApplyAnimationsAtTime(time);
             UpdateEffectSimulation(time);
+            UpdateCameraEvents(time);  // 추가
+
 
             // Scene View 강제 갱신
             UnityEditor.SceneView.RepaintAll();
@@ -1257,6 +1277,136 @@ public class CosmosTimelineController : EditorWindow
             }
         }
     }
+
+
+
+    // 카메라 이벤트 처리를 위한 필드 추가
+    private Dictionary<string, int> originalCameraPriorities = new Dictionary<string, int>();
+    private TimelineDataSO.CameraEvent currentCameraEvent = null;
+
+    private void UpdateCameraEvents(float currentTime)
+    {
+        if (currentTimeline == null) return;
+
+        // Play 모드에서는 EventHandler가 처리
+        if (Application.isPlaying)
+        {
+            return;
+        }
+
+
+        // CinemachineBrain 찾기
+        var brain = Camera.main?.GetComponent<Cinemachine.CinemachineBrain>();
+        if (brain == null)
+        {
+            return;
+        }
+
+        // Editor 모드에서 카메라 이벤트 처리
+        TimelineDataSO.CameraEvent activeCameraEvent = null;
+
+        foreach (var cameraEvent in currentTimeline.cameraEvents)
+        {
+            if (cameraEvent.actionType == TimelineDataSO.CameraActionType.VirtualCameraSwitch)
+            {
+                // 현재 시간이 카메라 이벤트 범위 내인지 확인
+                if (currentTime >= cameraEvent.triggerTime &&
+                    currentTime <= cameraEvent.triggerTime + cameraEvent.duration)
+                {
+                    activeCameraEvent = cameraEvent;
+                    break;
+                }
+            }
+        }
+
+        // 활성 카메라 이벤트가 변경되었을 때만 처리
+        if (activeCameraEvent != currentCameraEvent)
+        {
+            // 이전 카메라 복원
+            if (currentCameraEvent != null)
+            {
+                RestoreCameraPrioritiesWithBlend(brain,
+                currentCameraEvent?.blendOutDuration ?? 0.5f);
+            }
+
+           // 새 카메라 활성화
+            if (activeCameraEvent != null)
+            {
+                ApplyCameraEventWithBlend(activeCameraEvent, brain);
+            }
+
+            currentCameraEvent = activeCameraEvent;
+        }
+
+        // Editor 모드에서 CinemachineBrain 수동 업데이트
+        if (brain != null && !Application.isPlaying)
+        {
+            // 블렌드 진행을 위해 매 프레임 업데이트
+            brain.ManualUpdate();
+        }
+
+
+    }
+
+    private void ApplyCameraEventWithBlend(TimelineDataSO.CameraEvent cameraEvent, Cinemachine.CinemachineBrain brain)
+    {
+        if (string.IsNullOrEmpty(cameraEvent.virtualCameraName)) return;
+
+        var allVcams = UnityEngine.Object.FindObjectsByType<Cinemachine.CinemachineVirtualCamera>(FindObjectsSortMode.InstanceID);
+
+
+        // 블렌드 시간 설정
+        if (brain != null && cameraEvent.blendInDuration > 0)
+        {
+            brain.m_DefaultBlend.m_Time = cameraEvent.blendInDuration;
+            brain.m_DefaultBlend.m_Style = Cinemachine.CinemachineBlendDefinition.Style.EaseInOut;
+        }
+
+        // 원본 Priority 저장
+        originalCameraPriorities.Clear();
+        foreach (var vcam in allVcams)
+        {
+            originalCameraPriorities[vcam.name] = vcam.Priority;
+        }
+
+        // 타겟 카메라 찾기 및 Priority 설정
+        foreach (var vcam in allVcams)
+        {
+            if (vcam.name == cameraEvent.virtualCameraName)
+            {
+                vcam.Priority = 11;
+                Debug.Log($"[Editor Mode] Switching to virtual camera: {cameraEvent.virtualCameraName} with blend: {cameraEvent.blendInDuration}s");
+            }
+            else
+            {
+                vcam.Priority = 0;
+            }
+        }
+    }
+
+    private void RestoreCameraPrioritiesWithBlend(Cinemachine.CinemachineBrain brain, float blendDuration)
+    {
+        // 블렌드 시간 설정
+        if (brain != null && blendDuration > 0)
+        {
+            brain.m_DefaultBlend.m_Time = blendDuration;
+        }
+
+        var allVcams = UnityEngine.Object.FindObjectsByType<Cinemachine.CinemachineVirtualCamera>(FindObjectsSortMode.InstanceID);
+
+        foreach (var vcam in allVcams)
+        {
+            if (originalCameraPriorities.ContainsKey(vcam.name))
+            {
+                vcam.Priority = originalCameraPriorities[vcam.name];
+            }
+        }
+
+        originalCameraPriorities.Clear();
+    }
+
+
+
     // 🆕 Effect가 활성화되어야 하는지 확인
     private bool ShouldEffectBeActive(TimelineDataSO.EffectEvent effectEvent, float time)
     {
@@ -1666,7 +1816,10 @@ public class CosmosTimelineController : EditorWindow
             TimelineDataSO.AnimationEvent => new Color(0.2f, 0.6f, 1f, 0.8f), // 파란색
             TimelineDataSO.EffectEvent => new Color(1f, 0.5f, 0f, 0.8f), // 주황색
             TimelineDataSO.SoundEvent => new Color(0.2f, 1f, 0.2f, 0.8f), // 초록색
-            TimelineDataSO.CameraEvent => new Color(1f, 0.2f, 0.8f, 0.8f), // 보라색
+            TimelineDataSO.CameraEvent cameraEvt =>
+            cameraEvt.actionType == TimelineDataSO.CameraActionType.VirtualCameraSwitch ?
+            new Color(0.5f, 0.8f, 1f, 0.8f) : // 하늘색 (VirtualCamera)
+            new Color(1f, 0.2f, 0.8f, 0.8f), // 보라색 (기타 카메라)
             TimelineDataSO.CustomEvent => new Color(1f, 1f, 0.2f, 0.8f), // 노란색
             _ => Color.gray
         };
@@ -1692,7 +1845,9 @@ public class CosmosTimelineController : EditorWindow
             TimelineDataSO.AnimationEvent animEvent => animEvent.animationStateName,
             TimelineDataSO.EffectEvent effectEvent => System.IO.Path.GetFileNameWithoutExtension(effectEvent.effectAddressableKey),
             TimelineDataSO.SoundEvent soundEvent => "SFX",
-            TimelineDataSO.CameraEvent cameraEvent => cameraEvent.actionType.ToString(),
+            TimelineDataSO.CameraEvent cameraEvent => cameraEvent.actionType == TimelineDataSO.CameraActionType.VirtualCameraSwitch && !string.IsNullOrEmpty(cameraEvent.virtualCameraName) ?
+            $"CAM: {cameraEvent.virtualCameraName}" :
+            cameraEvent.actionType.ToString(),
             TimelineDataSO.CustomEvent customEvent => customEvent.eventName,
             _ => "?"
         };
@@ -1705,7 +1860,9 @@ public class CosmosTimelineController : EditorWindow
             TimelineDataSO.AnimationEvent animEvent => $"Animation: {animEvent.animationStateName}\nTime: {animEvent.TriggerTime:F2}s",
             TimelineDataSO.EffectEvent effectEvent => $"Effect: {effectEvent.effectAddressableKey}\nTime: {effectEvent.TriggerTime:F2}s",
             TimelineDataSO.SoundEvent soundEvent => $"Sound: {soundEvent.soundEventPath}\nTime: {soundEvent.TriggerTime:F2}s",
-            TimelineDataSO.CameraEvent cameraEvent => $"Camera: {cameraEvent.actionType}\nTime: {cameraEvent.TriggerTime:F2}s",
+            TimelineDataSO.CameraEvent cameraEvent => cameraEvent.actionType == TimelineDataSO.CameraActionType.VirtualCameraSwitch ?
+            $"Virtual Camera: {cameraEvent.virtualCameraName}\nTime: {cameraEvent.TriggerTime:F2}s\nDuration: {cameraEvent.duration:F2}s" :
+            $"Camera: {cameraEvent.actionType}\nTime: {cameraEvent.TriggerTime:F2}s",
             TimelineDataSO.CustomEvent customEvent => $"Custom: {customEvent.eventName}\nTime: {customEvent.TriggerTime:F2}s",
             _ => ""
         };

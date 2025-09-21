@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using BattleCharacterSystem.Timeline;
-using UnityEditor;
+using Cinemachine;  // 추가
+
 
 namespace Cosmos.Timeline.Playback
 {
@@ -647,6 +648,10 @@ namespace Cosmos.Timeline.Playback
 
                 switch (cameraEvent.actionType)
                 {
+                    case TimelineDataSO.CameraActionType.VirtualCameraSwitch:
+                        HandleVirtualCameraSwitch(cameraEvent);
+                        break;
+
                     case TimelineDataSO.CameraActionType.Shake:
                         StartCameraShake(cameraEvent);
                         break;
@@ -678,6 +683,126 @@ namespace Cosmos.Timeline.Playback
                 Debug.LogError($"[EventHandler] Camera event failed: {e.Message}");
             }
         }
+        private void HandleVirtualCameraSwitch(TimelineDataSO.CameraEvent evt)
+        {
+            if (string.IsNullOrEmpty(evt.virtualCameraName))
+            {
+                Debug.LogWarning($"[EventHandler] Virtual camera name is empty");
+                return;
+            }
+
+            // CinemachineBrain 찾기
+            var brain = Camera.main?.GetComponent<Cinemachine.CinemachineBrain>();
+            if (brain == null)
+            {
+                Debug.LogWarning("[EventHandler] CinemachineBrain not found on Main Camera");
+                return;
+            }
+
+
+            // Cinemachine 네임스페이스 사용
+            var allVcams = UnityEngine.Object.FindObjectsByType<Cinemachine.CinemachineVirtualCamera>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID);
+            Cinemachine.CinemachineVirtualCamera targetVcam = null;
+
+            // 이름으로 찾기
+            foreach (var vcam in allVcams)
+            {
+                if (vcam.name == evt.virtualCameraName)
+                {
+                    targetVcam = vcam;
+                    break;
+                }
+            }
+
+            if (targetVcam == null)
+            {
+                Debug.LogWarning($"[EventHandler] Virtual camera not found: {evt.virtualCameraName}");
+                return;
+            }
+
+            // 블렌드 설정 (BlendIn Duration 사용)
+            if (evt.blendInDuration > 0)
+            {
+                // 현재 활성 카메라 찾기
+                var currentVcam = brain.ActiveVirtualCamera as Cinemachine.CinemachineVirtualCamera;
+
+                if (currentVcam != null && currentVcam != targetVcam)
+                {
+                    // Custom Blend 설정
+                    brain.m_DefaultBlend.m_Time = evt.blendInDuration;
+                    brain.m_DefaultBlend.m_Style = Cinemachine.CinemachineBlendDefinition.Style.EaseInOut;
+                }
+            }
+
+
+            // 원본 Priority 저장
+            Dictionary<Cinemachine.CinemachineVirtualCamera, int> originalPriorities =
+                new Dictionary<Cinemachine.CinemachineVirtualCamera, int>();
+
+            foreach (var vcam in allVcams)
+            {
+                originalPriorities[vcam] = vcam.Priority;
+                // 다른 카메라 Priority 낮추기
+                if (vcam != targetVcam)
+                {
+                    vcam.Priority = 0;
+                }
+            }
+
+            // 타겟 카메라 Priority 올리기
+            targetVcam.Priority = 11;
+
+            // Brain 강제 업데이트 (Editor 모드에서 필요)
+            if (!Application.isPlaying)
+            {
+                brain.ManualUpdate();
+            }
+
+            if (debugMode)
+                Debug.Log($"[EventHandler] Switched to virtual camera: {evt.virtualCameraName} with blend: {evt.blendInDuration}s");
+
+            // Duration 후 Priority 복원
+            if (evt.duration > 0)
+            {
+                StartCoroutine(RestoreCameraPriorityWithBlend(targetVcam, originalPriorities, evt.duration, evt.blendOutDuration, brain));
+            }
+        }
+
+        // 블렌드 아웃 처리를 포함한 복원
+        private System.Collections.IEnumerator RestoreCameraPriorityWithBlend(
+            Cinemachine.CinemachineVirtualCamera targetVcam,
+            Dictionary<Cinemachine.CinemachineVirtualCamera, int> originalPriorities,
+            float delay,
+            float blendOutDuration,
+            Cinemachine.CinemachineBrain brain)
+        {
+            yield return new WaitForSeconds(delay);
+
+            // BlendOut 설정
+            if (blendOutDuration > 0 && brain != null)
+            {
+                brain.m_DefaultBlend.m_Time = blendOutDuration;
+            }
+
+            // Priority 복원
+            foreach (var kvp in originalPriorities)
+            {
+                if (kvp.Key != null)
+                {
+                    kvp.Key.Priority = kvp.Value;
+                }
+            }
+
+            // Editor 모드에서 Brain 업데이트
+            if (!Application.isPlaying && brain != null)
+            {
+                brain.ManualUpdate();
+            }
+
+            if (debugMode)
+                Debug.Log($"[EventHandler] Restored camera priorities after {delay}s with blend: {blendOutDuration}s");
+        }
+
 
         private void StartCameraShake(TimelineDataSO.CameraEvent cameraEvent)
         {
