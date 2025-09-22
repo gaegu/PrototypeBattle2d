@@ -17,7 +17,7 @@ public class BattleUIManager : MonoBehaviour
         {
             if (instance == null)
             {
-                instance = FindObjectOfType<BattleUIManager>();
+                instance = UnityEngine.Object.FindAnyObjectByType<BattleUIManager>();
             }
             return instance;
         }
@@ -27,7 +27,7 @@ public class BattleUIManager : MonoBehaviour
     [Header("전투 시작/종료 UI")]
     public GameObject startBattlePanel;      // START BATTLE 패널
     public GameObject battleEndPanel;        // Victory/Defeat 패널
-    public CustomTextMeshProUGUI battleEndText;    // Victory/Defeat 텍스트
+    public CustomTextMeshProUGUINew battleEndText;    // Victory/Defeat 텍스트
 
 
 
@@ -43,30 +43,30 @@ public class BattleUIManager : MonoBehaviour
     [Header("커맨드 버튼들")]
     public Button attackButton;
     public Button skillButton;
-    public CustomTextMeshProUGUI skillButtonText; 
+    public CustomTextMeshProUGUINew skillButtonText; 
 
     public Button useBPButton;
 
 
     [SerializeField] private Button autoBattleButton;
-    [SerializeField] private CustomTextMeshProUGUI autoBattleText;
+    [SerializeField] private CustomTextMeshProUGUINew autoBattleText;
     private bool isAutoEnabled = false;
 
 
 
     [Header("타이머 UI")]
-    public CustomTextMeshProUGUI timerText;
+    public CustomTextMeshProUGUINew timerText;
     public Slider timerSlider;
 
     [Header("전투 정보 UI")]
-    public CustomTextMeshProUGUI characterNameText;  // 캐릭터 정보 표시
-    public CustomTextMeshProUGUI characterHPText;  // 캐릭터 정보 표시
-    public CustomTextMeshProUGUI characterMPText;  // 캐릭터 정보 표시
-    public CustomTextMeshProUGUI characterBPText;  // 캐릭터 정보 표시
+    public CustomTextMeshProUGUINew characterNameText;  // 캐릭터 정보 표시
+    public CustomTextMeshProUGUINew characterHPText;  // 캐릭터 정보 표시
+    public CustomTextMeshProUGUINew characterMPText;  // 캐릭터 정보 표시
+    public CustomTextMeshProUGUINew characterBPText;  // 캐릭터 정보 표시
 
     [Header("전투 진행 정보")]
-    public CustomTextMeshProUGUI roundText;           // "Round: 1"
-    public CustomTextMeshProUGUI turnText;            // "Turn: 3"
+    public CustomTextMeshProUGUINew roundText;           // "Round: 1"
+    public CustomTextMeshProUGUINew turnText;            // "Turn: 3"
 
 
 
