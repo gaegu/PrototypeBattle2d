@@ -143,6 +143,11 @@ namespace BattleCharacterSystem.Timeline
         {
             public float triggerTime;
             public string eventName;
+
+            // 기존 Dictionary 대신 구조화된 데이터 사용
+            public CustomActionType actionType;  // 추가
+            public CustomActionData actionData;  // 추가
+
             public Dictionary<string, object> parameters = new Dictionary<string, object>();
 
             public float TriggerTime => triggerTime;

@@ -962,10 +962,18 @@ namespace Cosmos.Timeline.Playback
             {
                 OnEventTriggered?.Invoke(customEvent);
 
-                // Custom event는 외부에서 처리하도록 이벤트만 발생
-                SendMessage($"OnCustomTimelineEvent_{customEvent.eventName}",
-                           customEvent.parameters,
-                           SendMessageOptions.DontRequireReceiver);
+                // CosmosCustomTrack 액션 처리 추가
+                if (customEvent.actionType != CustomActionType.None)
+                {
+                    ProcessCustomAction(customEvent.actionType, customEvent.actionData);
+                }
+                else
+                {
+                    // 기존 처리 방식 (호환성 유지)
+                    SendMessage($"OnCustomTimelineEvent_{customEvent.eventName}",
+                               customEvent.parameters,
+                               SendMessageOptions.DontRequireReceiver);
+                }
 
                 OnEventCompleted?.Invoke(customEvent);
 
@@ -978,7 +986,239 @@ namespace Cosmos.Timeline.Playback
             }
         }
 
+
+        private void ProcessCustomAction(CustomActionType actionType, CustomActionData actionData)
+        {
+            switch (actionType)
+            {
+                case CustomActionType.MoveToPosition:
+                    ExecuteMoveToPosition(actionData);
+                    break;
+
+                case CustomActionType.Knockback:
+                    ExecuteKnockback(actionData);
+                    break;
+
+                case CustomActionType.SetVisibility:
+                    ExecuteSetVisibility(actionData);
+                    break;
+
+                case CustomActionType.FlashEffect:
+                    ExecuteFlashEffect(actionData);
+                    break;
+
+                case CustomActionType.HitEvent:
+                    ExecuteHitEvent(actionData);
+                    break;
+
+                case CustomActionType.ApplyBuff:
+                case CustomActionType.ApplyDebuff:
+                    ExecuteBuffDebuff(actionType, actionData);
+                    break;
+
+                case CustomActionType.TriggerCameraShake:
+                    ExecuteCameraShakeFromCustom(actionData);
+                    break;
+            }
+        }
+
+        private void ExecuteMoveToPosition(CustomActionData data)
+        {
+            if (targetTransform == null) return;
+
+            Vector3 targetPos = data.positionPreset == TargetPositionPreset.Center ?
+                Vector3.zero : data.customPosition;
+
+            StartCoroutine(MoveCoroutine(targetPos, data));
+        }
+
+        private System.Collections.IEnumerator MoveCoroutine(Vector3 targetPos, CustomActionData data)
+        {
+            Vector3 startPos = targetTransform.position;
+            float elapsed = 0;
+
+            while (elapsed < data.duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = data.curve != null ? data.curve.Evaluate(elapsed / data.duration) : elapsed / data.duration;
+                targetTransform.position = Vector3.Lerp(startPos, targetPos, t);
+                yield return null;
+            }
+
+            targetTransform.position = targetPos;
+        }
+
+        private void ExecuteKnockback(CustomActionData data)
+        {
+            if (battleActor == null) return;
+
+            float force = data.knockbackIntensity switch
+            {
+                KnockbackIntensity.Weak => 3f,
+                KnockbackIntensity.Normal => 5f,
+                KnockbackIntensity.Strong => 8f,
+                KnockbackIntensity.Custom => data.intensity,
+                _ => 5f
+            };
+
+            Vector3 knockbackDir = battleActor.BattleActorInfo.IsAlly == true ? Vector3.right : Vector3.left;
+            StartCoroutine(KnockbackCoroutine(knockbackDir * force, data.duration));
+        }
+
+        private System.Collections.IEnumerator KnockbackCoroutine(Vector3 knockbackForce, float duration)
+        {
+            Vector3 startPos = targetTransform.position;
+            Vector3 targetPos = startPos + knockbackForce;
+            float halfDuration = duration * 0.5f;
+
+            // 밀려남
+            float elapsed = 0;
+            while (elapsed < halfDuration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Sin(elapsed / halfDuration * Mathf.PI * 0.5f);
+                targetTransform.position = Vector3.Lerp(startPos, targetPos, t);
+                yield return null;
+            }
+
+            // 복귀
+            elapsed = 0;
+            while (elapsed < halfDuration)
+            {
+                elapsed += Time.deltaTime;
+                float t = 1f - Mathf.Cos(elapsed / halfDuration * Mathf.PI * 0.5f);
+                targetTransform.position = Vector3.Lerp(targetPos, startPos, t);
+                yield return null;
+            }
+
+            targetTransform.position = startPos;
+        }
+
+        private void ExecuteSetVisibility(CustomActionData data)
+        {
+            var renderers = targetObject.GetComponentsInChildren<SpriteRenderer>();
+
+            switch (data.visibilityMode)
+            {
+                case VisibilityMode.Show:
+                    foreach (var r in renderers) r.enabled = true;
+                    break;
+
+                case VisibilityMode.Hide:
+                    foreach (var r in renderers) r.enabled = false;
+                    break;
+
+                case VisibilityMode.FadeIn:
+                case VisibilityMode.FadeOut:
+                    StartCoroutine(FadeCoroutine(renderers, data.visibilityMode, data.duration));
+                    break;
+            }
+        }
+
+        private System.Collections.IEnumerator FadeCoroutine(SpriteRenderer[] renderers, VisibilityMode mode, float duration)
+        {
+            float startAlpha = mode == VisibilityMode.FadeIn ? 0f : 1f;
+            float endAlpha = mode == VisibilityMode.FadeIn ? 1f : 0f;
+            float elapsed = 0;
+
+            // 시작 알파값 설정
+            foreach (var r in renderers)
+            {
+                var c = r.color;
+                c.a = startAlpha;
+                r.color = c;
+            }
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float alpha = Mathf.Lerp(startAlpha, endAlpha, elapsed / duration);
+
+                foreach (var r in renderers)
+                {
+                    var c = r.color;
+                    c.a = alpha;
+                    r.color = c;
+                }
+
+                yield return null;
+            }
+        }
+
+        private void ExecuteFlashEffect(CustomActionData data)
+        {
+            Color flashColor = data.flashColorPreset switch
+            {
+                FlashColorPreset.White => Color.white,
+                FlashColorPreset.Red => Color.red,
+                FlashColorPreset.Green => Color.green,
+                FlashColorPreset.Custom => data.customColor,
+                _ => Color.white
+            };
+
+            var renderers = targetObject.GetComponentsInChildren<SpriteRenderer>();
+            StartCoroutine(FlashCoroutine(renderers, flashColor, data.duration));
+        }
+
+        private System.Collections.IEnumerator FlashCoroutine(SpriteRenderer[] renderers, Color flashColor, float duration)
+        {
+            Color[] originalColors = new Color[renderers.Length];
+
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                originalColors[i] = renderers[i].color;
+                renderers[i].color = flashColor;
+            }
+
+            yield return new WaitForSeconds(duration);
+
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                renderers[i].color = originalColors[i];
+            }
+        }
+
+        private void ExecuteHitEvent(CustomActionData data)
+        {
+            if (battleActor == null) return;
+
+            // BattleActor에 HitEvent 전달
+            Debug.Log($"[CustomAction] HitEvent triggered with multiplier: {data.multiplier}");
+
+            // 실제 데미지는 스킬 시스템에서 처리
+            battleActor.SendMessage("OnTimelineHitEvent", data.multiplier, SendMessageOptions.DontRequireReceiver);
+        }
+
+        private void ExecuteBuffDebuff(CustomActionType actionType, CustomActionData data)
+        {
+            if (battleActor == null || string.IsNullOrEmpty(data.stringParam)) return;
+
+            bool isBuff = actionType == CustomActionType.ApplyBuff;
+            Debug.Log($"[CustomAction] {(isBuff ? "Buff" : "Debuff")} applied: {data.stringParam}");
+
+            // 실제 버프/디버프는 스킬 시스템에서 처리
+            var param = new { id = data.stringParam, isBuff = isBuff };
+            battleActor.SendMessage("OnTimelineBuffDebuff", param, SendMessageOptions.DontRequireReceiver);
+        }
+
+        private void ExecuteCameraShakeFromCustom(CustomActionData data)
+        {
+            // 기존 카메라 이벤트 재사용
+            var cameraEvent = new TimelineDataSO.CameraEvent
+            {
+                triggerTime = 0,
+                actionType = TimelineDataSO.CameraActionType.Shake,
+                intensity = data.intensity,
+                duration = data.duration
+            };
+
+            HandleCameraEvent(cameraEvent);
+        }
+
+
+
         #endregion
+
 
         #region Effect Management
 

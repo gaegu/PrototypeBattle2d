@@ -1,9 +1,10 @@
-using UnityEngine;
 using Cysharp.Threading.Tasks;
-using System.Collections.Generic;
+using DG.Tweening;
 using IronJade.Table.Data;
 using SkillSystem;
 using System;
+using System.Collections.Generic;
+using UnityEngine;
 
 /// <summary>
 /// BattleActor의 부분 클래스 - 스킬 시스템 통합
@@ -22,6 +23,11 @@ public partial class BattleActor : MonoBehaviour
 
 
     public SkillCooldownManager CooldownManager { get; private set; }
+
+    public System.Action<float> OnTimelineHitEventAction;
+
+
+
     #endregion
 
 
@@ -424,6 +430,92 @@ public partial class BattleActor : MonoBehaviour
         await PlaySkillTimeline(skillData.skillId);
 
     }
+
+    private void OnTimelineHitEvent(float multiplier)
+    {
+        Debug.Log($"[BattleActor] Timeline HitEvent received with multiplier: {multiplier}");
+
+        // 현재 실행 중인 스킬이 있으면 데미지 적용
+        //  if (skillManager != null && this.skill != null)
+        if (skillManager != null )
+        {
+            // 액션 호출 (스킬 시스템에서 구독하여 처리)
+            OnTimelineHitEventAction?.Invoke(multiplier);
+        }
+    }
+
+    /// <summary>
+    /// Timeline Buff/Debuff 이벤트 수신 메서드
+    /// </summary>
+    private void OnTimelineBuffDebuff(object param)
+    {
+        if (param == null) return;
+
+        try
+        {
+            // Anonymous type 파싱
+            var paramType = param.GetType();
+            var idProp = paramType.GetProperty("id");
+            var isBuffProp = paramType.GetProperty("isBuff");
+
+            if (idProp != null && isBuffProp != null)
+            {
+                string buffId = idProp.GetValue(param) as string;
+                bool isBuff = (bool)isBuffProp.GetValue(param);
+
+                Debug.Log($"[BattleActor] Timeline {(isBuff ? "Buff" : "Debuff")} event: {buffId}");
+
+                // 실제 버프/디버프 적용은 스킬 시스템과 연동
+                if (!string.IsNullOrEmpty(buffId) && skillManager != null)
+                {
+                    // 버프/디버프 ID로 스킬 데이터 검색하여 적용
+                    var skillDatabase = AdvancedSkillDatabase.Load(false);
+                    if (skillDatabase != null)
+                    {
+                        // buffId를 int로 파싱 시도
+                        if (int.TryParse(buffId, out int skillId))
+                        {
+                            var buffSkillData = skillDatabase.GetSkillById(skillId);
+                            if (buffSkillData != null)
+                            {
+                                // 자기 자신에게 버프/디버프 적용
+                                skillManager.ApplySkill(buffSkillData, this, this);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[BattleActor] Failed to process Timeline buff/debuff: {e.Message}");
+        }
+    }
+
+
+
+    private void OnTimelineCustomEvent(string eventName, object data)
+    {
+        Debug.Log($"[BattleActor] Timeline custom event received: {eventName}");
+
+        // 이벤트명에 따른 처리
+        switch (eventName)
+        {
+            case "DamageBoost":
+                // 일시적 데미지 증가 등
+                break;
+
+            case "DefenseBreak":
+                // 방어력 감소 등
+                break;
+
+            default:
+                Debug.LogWarning($"[BattleActor] Unknown timeline event: {eventName}");
+                break;
+        }
+    }
+
+
 
     // BattleActor.cs에 추가
     public bool HasBuff()

@@ -92,6 +92,9 @@ namespace BattleCharacterSystem.Editor
                 SaveExtractedAnimationClips(timelineData, savePath, characterName );
             }
 
+            // 기존 파싱들 뒤에 추가
+            ParseCustomTracks(timelineAsset, timelineData);
+
             // SO 저장
             if (!string.IsNullOrEmpty(savePath))
             {
@@ -338,6 +341,36 @@ namespace BattleCharacterSystem.Editor
 
                 timelineData.soundEvents.Add(soundEvent);
                 Debug.Log($"[TimelineConverter] Added FMOD event: {soundEvent.soundEventPath} at {soundEvent.triggerTime}s");
+            }
+        }
+
+
+        // 기존 Track 파싱 부분 다음에 추가
+        private static void ParseCustomTracks(TimelineAsset timelineAsset, TimelineDataSO timelineData)
+        {
+            foreach (var track in timelineAsset.GetOutputTracks())
+            {
+                if (track is CosmosCustomTrack customTrack)
+                {
+                    foreach (var clip in customTrack.GetClips())
+                    {
+                        var customClip = clip.asset as CosmosCustomClip;
+                        if (customClip != null)
+                        {
+                            var customEvent = new TimelineDataSO.CustomEvent
+                            {
+                                triggerTime = (float)clip.start,
+                                eventName = $"CustomAction_{customClip.actionType}",
+                                actionType = customClip.actionType,
+                                actionData = customClip.actionData
+                            };
+
+                            timelineData.customEvents.Add(customEvent);
+
+                            Debug.Log($"[TimelineConverter] Added Custom Event: {customClip.actionType} at {clip.start}");
+                        }
+                    }
+                }
             }
         }
 
