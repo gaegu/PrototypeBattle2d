@@ -85,7 +85,9 @@ public partial class BattleProcessManagerNew : MonoBehaviour
         var monsterGroup = await BattleDataLoader.GetMonsterGroupDataAsync(monsterGroupId);
 
 
-        battlePosition.SetFormation(monsterGroup.FormationType, false);
+        //battlePosition.SetFormation(monsterGroup.FormationType, false);
+        battlePosition.SetFormation(monsterGroup.FormationType);  // 아군/적군 둘 다 설정됨
+
 
         Debug.Log($"[Battle] Data loaded - Allies: {AllyInfos.Length}, Enemies: {EnemyInfos.Length}");
 

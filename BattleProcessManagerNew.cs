@@ -1117,7 +1117,8 @@ public partial class BattleProcessManagerNew : MonoBehaviour
     private async UniTask InitBattleActors()
     {
         // 진형 설정
-        battlePosition.SetFormation(initialAllyFormation, true);
+        battlePosition.SetFormation(initialAllyFormation);  // 아군/적군 동시 설정
+
 
         allyActors.Clear();
         enemyActors.Clear();
@@ -1234,17 +1235,14 @@ public partial class BattleProcessManagerNew : MonoBehaviour
     private async UniTask ApplyFormationBuffSkills()
     {
         // 아군 진형 버프
-        var allyFormation = battlePosition.GetCurrentFormation(true);
-        if (allyFormation != null)
+        var formation = battlePosition.GetCurrentFormation();
+        if (formation != null)
         {
-            await ApplyFormationSkill(allyFormation, allyActors, true);
-        }
+            // 아군 진형 버프
+            await ApplyFormationSkill(formation, allyActors, true);
 
-        // 적군 진형 버프
-        var enemyFormation = battlePosition.GetCurrentFormation(false);
-        if (enemyFormation != null)
-        {
-            await ApplyFormationSkill(enemyFormation, enemyActors, false);
+            // 적군 진형 버프
+            await ApplyFormationSkill(formation, enemyActors, false);
         }
     }
 
@@ -1451,7 +1449,7 @@ public partial class BattleProcessManagerNew : MonoBehaviour
         Debug.Log($"[Formation Change] Changing {(isAlly ? "ally" : "enemy")} formation to {newFormation}");
 
         // 진형 변경
-        battlePosition.ChangeFormationDuringBattle(newFormation, isAlly, 1.5f);
+        battlePosition.ChangeFormationDuringBattle(newFormation, 1.5f);
 
         // 버프 재계산
         var actors = isAlly ? allyActors : enemyActors;
@@ -1470,10 +1468,11 @@ public partial class BattleProcessManagerNew : MonoBehaviour
         }
 
         // 새 진형 스킬 적용
-        var formation = battlePosition.GetCurrentFormation(isAlly);
+        var formation = battlePosition.GetCurrentFormation();
         if (formation != null)
         {
-            await ApplyFormationSkill(formation, actors, isAlly);
+            await ApplyFormationSkill(formation, allyActors, true);
+            await ApplyFormationSkill(formation, enemyActors, false);
         }
 
         await UniTask.Delay(1500); // 애니메이션 대기

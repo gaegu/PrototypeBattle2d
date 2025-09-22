@@ -27,20 +27,17 @@ public enum CharacterJobType
     Special      // 특수형
 }
 
-
 /// <summary>
 /// 진형 시스템이 통합된 전투 위치 관리자
 /// FormationSystem의 기능을 모두 포함
 /// </summary>
 public class BattlePositionNew : MonoBehaviour
 {
-    [Header("진형 데이터")]
-    [SerializeField] private FormationData[] allyFormationDataList = new FormationData[4];
-    [SerializeField] private FormationData[] enemyFormationDataList = new FormationData[4];
+    [Header("진형 데이터 - 통합")]
+    [SerializeField] private FormationData[] formationDataList = new FormationData[4];
 
     [Header("현재 진형")]
-    [SerializeField] private FormationType currentAllyFormationType = FormationType.OffensiveBalance;
-    [SerializeField] private FormationType currentEnemyFormationType = FormationType.DefensiveBalance;
+    [SerializeField] private FormationType currentFormationType = FormationType.OffensiveBalance;
 
     [Header("진형 미리보기")]
     [SerializeField] private bool previewFormation = true;
@@ -54,58 +51,38 @@ public class BattlePositionNew : MonoBehaviour
     private Dictionary<int, Vector3> cachedEnemyAttackPositions = new Dictionary<int, Vector3>();
 
     // 진형 Dictionary (빠른 접근용)
-    private Dictionary<FormationType, FormationData> allyFormationDict;
-    private Dictionary<FormationType, FormationData> enemyFormationDict;
+    private Dictionary<FormationType, FormationData> formationDict;
 
     // 현재 활성 진형 데이터
-    private FormationData currentAllyFormation;
-    private FormationData currentEnemyFormation;
+    private FormationData currentFormation;
 
     // 진형 변경 이벤트
     public event Action<FormationType, bool> OnFormationChanged;
 
-    // 레거시 호환 (기존 코드와의 호환성)
-    [HideInInspector] public Transform[] allyStandPositions;
-    [HideInInspector] public Transform[] enemyStandPositions;
-    [HideInInspector] public Transform allyAttackPosition;
-    [HideInInspector] public Transform enemyAttackPosition;
-
     private void Awake()
     {
         InitializeFormations();
-        InitializeFormationDictionaries();
+        InitializeFormationDictionary();
     }
 
     private void Start()
     {
         // 초기 진형 설정
-        SetFormation(currentAllyFormationType, true);
-        SetFormation(currentEnemyFormationType, false);
+        SetFormation(currentFormationType);
     }
 
     /// <summary>
     /// 진형 Dictionary 초기화
     /// </summary>
-    private void InitializeFormationDictionaries()
+    private void InitializeFormationDictionary()
     {
-        allyFormationDict = new Dictionary<FormationType, FormationData>();
-        enemyFormationDict = new Dictionary<FormationType, FormationData>();
+        formationDict = new Dictionary<FormationType, FormationData>();
 
-        // 아군 진형 Dictionary 생성
-        for (int i = 0; i < allyFormationDataList.Length; i++)
+        for (int i = 0; i < formationDataList.Length; i++)
         {
-            if (allyFormationDataList[i] != null)
+            if (formationDataList[i] != null)
             {
-                allyFormationDict[(FormationType)i] = allyFormationDataList[i];
-            }
-        }
-
-        // 적군 진형 Dictionary 생성
-        for (int i = 0; i < enemyFormationDataList.Length; i++)
-        {
-            if (enemyFormationDataList[i] != null)
-            {
-                enemyFormationDict[(FormationType)i] = enemyFormationDataList[i];
+                formationDict[(FormationType)i] = formationDataList[i];
             }
         }
     }
@@ -115,19 +92,12 @@ public class BattlePositionNew : MonoBehaviour
     /// </summary>
     private void InitializeFormations()
     {
-        // 진형 데이터가 없으면 기본값 생성
         for (int i = 0; i < 4; i++)
         {
-            if (allyFormationDataList[i] == null)
+            if (formationDataList[i] == null)
             {
-                Debug.LogWarning($"Creating default ally formation for {(FormationType)i}");
-                allyFormationDataList[i] = CreateDefaultFormationData((FormationType)i, true);
-            }
-
-            if (enemyFormationDataList[i] == null)
-            {
-                Debug.LogWarning($"Creating default enemy formation for {(FormationType)i}");
-                enemyFormationDataList[i] = CreateDefaultFormationData((FormationType)i, false);
+                Debug.LogWarning($"Creating default formation for {(FormationType)i}");
+                formationDataList[i] = CreateDefaultFormationData((FormationType)i);
             }
         }
     }
@@ -135,45 +105,38 @@ public class BattlePositionNew : MonoBehaviour
     /// <summary>
     /// 기본 진형 데이터 생성 (런타임용)
     /// </summary>
-    private FormationData CreateDefaultFormationData(FormationType type, bool isAlly)
+    private FormationData CreateDefaultFormationData(FormationType type)
     {
         var data = ScriptableObject.CreateInstance<FormationData>();
         data.formationType = type;
         data.formationName = type.ToString();
-        data.InitializePositions(isAlly);
+        data.InitializePositions(true);  // 아군
+        data.InitializePositions(false); // 적군
         return data;
     }
 
     /// <summary>
     /// 진형 설정 및 변경
     /// </summary>
-    public void SetFormation(FormationType formationType, bool isAlly)
+    public void SetFormation(FormationType formationType)
     {
-        var dict = isAlly ? allyFormationDict : enemyFormationDict;
-
-        if (!dict.TryGetValue(formationType, out FormationData formationData))
+        if (!formationDict.TryGetValue(formationType, out FormationData formationData))
         {
-            Debug.LogError($"Formation data not found for {formationType} (isAlly: {isAlly})");
+            Debug.LogError($"Formation data not found for {formationType}");
             return;
         }
 
-        if (isAlly)
-        {
-            currentAllyFormationType = formationType;
-            currentAllyFormation = formationData;
-            UpdateCachedPositions(true);
-        }
-        else
-        {
-            currentEnemyFormationType = formationType;
-            currentEnemyFormation = formationData;
-            UpdateCachedPositions(false);
-        }
+        currentFormationType = formationType;
+        currentFormation = formationData;
+
+        UpdateCachedPositions(true);  // 아군 캐시 업데이트
+        UpdateCachedPositions(false); // 적군 캐시 업데이트
 
         // 이벤트 발생
-        OnFormationChanged?.Invoke(formationType, isAlly);
+        OnFormationChanged?.Invoke(formationType, true);
+        OnFormationChanged?.Invoke(formationType, false);
 
-        Debug.Log($"Formation changed to {formationType} for {(isAlly ? "Ally" : "Enemy")}");
+        Debug.Log($"Formation changed to {formationType}");
     }
 
     /// <summary>
@@ -181,21 +144,21 @@ public class BattlePositionNew : MonoBehaviour
     /// </summary>
     private void UpdateCachedPositions(bool isAlly)
     {
-        var formation = isAlly ? currentAllyFormation : currentEnemyFormation;
-        if (formation == null) return;
+        if (currentFormation == null) return;
 
         var standCache = isAlly ? cachedAllyStandPositions : cachedEnemyStandPositions;
         var attackCache = isAlly ? cachedAllyAttackPositions : cachedEnemyAttackPositions;
+        var positions = isAlly ? currentFormation.allyPositions : currentFormation.enemyPositions;
 
         standCache.Clear();
         attackCache.Clear();
 
-        for (int i = 0; i < formation.positions.Length; i++)
+        for (int i = 0; i < positions.Length; i++)
         {
-            if (formation.positions[i] != null)
+            if (positions[i] != null)
             {
-                standCache[i] = transform.TransformPoint(formation.positions[i].standPosition);
-                attackCache[i] = transform.TransformPoint(formation.positions[i].attackPosition);
+                standCache[i] = transform.TransformPoint(positions[i].standPosition);
+                attackCache[i] = transform.TransformPoint(currentFormation.GetAttackPosition(i, isAlly));
             }
         }
     }
@@ -203,17 +166,17 @@ public class BattlePositionNew : MonoBehaviour
     /// <summary>
     /// 현재 진형 데이터 가져오기
     /// </summary>
-    public FormationData GetCurrentFormation(bool isAlly)
+    public FormationData GetCurrentFormation()
     {
-        return isAlly ? currentAllyFormation : currentEnemyFormation;
+        return currentFormation;
     }
 
     /// <summary>
     /// 현재 진형 타입 가져오기
     /// </summary>
-    public FormationType GetCurrentFormationType(bool isAlly)
+    public FormationType GetCurrentFormationType()
     {
-        return isAlly ? currentAllyFormationType : currentEnemyFormationType;
+        return currentFormationType;
     }
 
     /// <summary>
@@ -229,10 +192,13 @@ public class BattlePositionNew : MonoBehaviour
         }
 
         // 캐시에 없으면 실시간 계산
-        var formation = GetCurrentFormation(isAlly);
-        if (formation != null && slotIndex < formation.positions.Length && formation.positions[slotIndex] != null)
+        if (currentFormation != null)
         {
-            return transform.TransformPoint(formation.positions[slotIndex].standPosition);
+            var positions = isAlly ? currentFormation.allyPositions : currentFormation.enemyPositions;
+            if (positions != null && slotIndex < positions.Length && positions[slotIndex] != null)
+            {
+                return transform.TransformPoint(positions[slotIndex].standPosition);
+            }
         }
 
         Debug.LogWarning($"Stand position not found for slot {slotIndex} (isAlly: {isAlly})");
@@ -252,10 +218,9 @@ public class BattlePositionNew : MonoBehaviour
         }
 
         // 캐시에 없으면 실시간 계산
-        var formation = GetCurrentFormation(isAlly);
-        if (formation != null && slotIndex < formation.positions.Length && formation.positions[slotIndex] != null)
+        if (currentFormation != null)
         {
-            return transform.TransformPoint(formation.positions[slotIndex].attackPosition);
+            return transform.TransformPoint(currentFormation.GetAttackPosition(slotIndex, isAlly));
         }
 
         Debug.LogWarning($"Attack position not found for slot {slotIndex} (isAlly: {isAlly})");
@@ -267,11 +232,13 @@ public class BattlePositionNew : MonoBehaviour
     /// </summary>
     public bool IsFrontRow(int slotIndex, bool isAlly)
     {
-        var formation = GetCurrentFormation(isAlly);
-
-        if (formation != null && slotIndex < formation.positions.Length && formation.positions[slotIndex] != null)
+        if (currentFormation != null)
         {
-            return formation.positions[slotIndex].isFrontRow;
+            var positions = isAlly ? currentFormation.allyPositions : currentFormation.enemyPositions;
+            if (positions != null && slotIndex < positions.Length && positions[slotIndex] != null)
+            {
+                return positions[slotIndex].isFrontRow;
+            }
         }
 
         return false;
@@ -282,14 +249,15 @@ public class BattlePositionNew : MonoBehaviour
     /// </summary>
     public List<int> GetFrontRowSlots(bool isAlly)
     {
-        var formation = GetCurrentFormation(isAlly);
         var frontSlots = new List<int>();
 
-        if (formation != null)
+        if (currentFormation != null)
         {
-            for (int i = 0; i < formation.positions.Length; i++)
+            var positions = isAlly ? currentFormation.allyPositions : currentFormation.enemyPositions;
+
+            for (int i = 0; i < positions.Length; i++)
             {
-                if (formation.positions[i] != null && formation.positions[i].isFrontRow)
+                if (positions[i] != null && positions[i].isFrontRow)
                 {
                     frontSlots.Add(i);
                 }
@@ -304,14 +272,15 @@ public class BattlePositionNew : MonoBehaviour
     /// </summary>
     public List<int> GetBackRowSlots(bool isAlly)
     {
-        var formation = GetCurrentFormation(isAlly);
         var backSlots = new List<int>();
 
-        if (formation != null)
+        if (currentFormation != null)
         {
-            for (int i = 0; i < formation.positions.Length; i++)
+            var positions = isAlly ? currentFormation.allyPositions : currentFormation.enemyPositions;
+
+            for (int i = 0; i < positions.Length; i++)
             {
-                if (formation.positions[i] != null && !formation.positions[i].isFrontRow)
+                if (positions[i] != null && !positions[i].isFrontRow)
                 {
                     backSlots.Add(i);
                 }
@@ -326,8 +295,7 @@ public class BattlePositionNew : MonoBehaviour
     /// </summary>
     public float GetFormationBuff(CharacterJobType jobType, int slotIndex, bool isAlly)
     {
-        var formation = GetCurrentFormation(isAlly);
-        if (formation == null) return 1f;
+        if (currentFormation == null) return 1f;
 
         bool isFrontRow = IsFrontRow(slotIndex, isAlly);
         float buffMultiplier = 1f;
@@ -347,7 +315,7 @@ public class BattlePositionNew : MonoBehaviour
 
         if (isOptimalPosition)
         {
-            buffMultiplier = 1f + (formation.GetActualBuffPercentage() / 100f);
+            buffMultiplier = 1f + (currentFormation.GetActualBuffPercentage() / 100f);
         }
 
         return buffMultiplier;
@@ -364,11 +332,9 @@ public class BattlePositionNew : MonoBehaviour
     /// <summary>
     /// 진형 레벨 증가
     /// </summary>
-    public void UpgradeFormationLevel(FormationType formationType, bool isAlly)
+    public void UpgradeFormationLevel(FormationType formationType)
     {
-        var dict = isAlly ? allyFormationDict : enemyFormationDict;
-
-        if (dict.TryGetValue(formationType, out FormationData formation))
+        if (formationDict.TryGetValue(formationType, out FormationData formation))
         {
             if (formation.level < 10)
             {
@@ -376,10 +342,10 @@ public class BattlePositionNew : MonoBehaviour
                 Debug.Log($"Formation {formationType} upgraded to level {formation.level}");
 
                 // 현재 진형이면 캐시 업데이트
-                if ((isAlly && formationType == currentAllyFormationType) ||
-                    (!isAlly && formationType == currentEnemyFormationType))
+                if (formationType == currentFormationType)
                 {
-                    UpdateCachedPositions(isAlly);
+                    UpdateCachedPositions(true);
+                    UpdateCachedPositions(false);
                 }
             }
         }
@@ -388,25 +354,28 @@ public class BattlePositionNew : MonoBehaviour
     /// <summary>
     /// 런타임 중 진형 변경 (스킬 등)
     /// </summary>
-    public void ChangeFormationDuringBattle(FormationType newFormation, bool isAlly, float transitionTime = 1f)
+    public void ChangeFormationDuringBattle(FormationType newFormation, float transitionTime = 1f)
     {
-        StartCoroutine(TransitionFormation(newFormation, isAlly, transitionTime));
+        StartCoroutine(TransitionFormation(newFormation, transitionTime));
     }
 
     /// <summary>
     /// 진형 전환 애니메이션
     /// </summary>
-    private IEnumerator TransitionFormation(FormationType newFormation, bool isAlly, float duration)
+    private IEnumerator TransitionFormation(FormationType newFormation, float duration)
     {
         // 이전 위치 저장
-        var oldPositions = new Dictionary<int, Vector3>();
+        var oldAllyPositions = new Dictionary<int, Vector3>();
+        var oldEnemyPositions = new Dictionary<int, Vector3>();
+
         for (int i = 0; i < 5; i++)
         {
-            oldPositions[i] = GetStandPosition(i, isAlly);
+            oldAllyPositions[i] = GetStandPosition(i, true);
+            oldEnemyPositions[i] = GetStandPosition(i, false);
         }
 
         // 새 진형 설정
-        SetFormation(newFormation, isAlly);
+        SetFormation(newFormation);
 
         // 부드러운 이동
         float elapsed = 0;
@@ -416,18 +385,28 @@ public class BattlePositionNew : MonoBehaviour
             float t = elapsed / duration;
             t = Mathf.SmoothStep(0, 1, t);
 
-            // 각 캐릭터 위치 보간
-            var actors = isAlly ?
-                BattleProcessManagerNew.Instance.GetAllyActors() :
-                BattleProcessManagerNew.Instance.GetEnemyActors();
-
-            foreach (var actor in actors)
+            // 아군 위치 보간
+            var allyActors = BattleProcessManagerNew.Instance.GetAllyActors();
+            foreach (var actor in allyActors)
             {
                 if (actor != null && !actor.IsDead)
                 {
                     int slot = actor.BattleActorInfo.SlotIndex;
-                    Vector3 newPos = GetStandPosition(slot, isAlly);
-                    Vector3 currentPos = Vector3.Lerp(oldPositions[slot], newPos, t);
+                    Vector3 newPos = GetStandPosition(slot, true);
+                    Vector3 currentPos = Vector3.Lerp(oldAllyPositions[slot], newPos, t);
+                    actor.transform.position = currentPos;
+                }
+            }
+
+            // 적군 위치 보간
+            var enemyActors = BattleProcessManagerNew.Instance.GetEnemyActors();
+            foreach (var actor in enemyActors)
+            {
+                if (actor != null && !actor.IsDead)
+                {
+                    int slot = actor.BattleActorInfo.SlotIndex;
+                    Vector3 newPos = GetStandPosition(slot, false);
+                    Vector3 currentPos = Vector3.Lerp(oldEnemyPositions[slot], newPos, t);
                     actor.transform.position = currentPos;
                 }
             }
@@ -436,15 +415,31 @@ public class BattlePositionNew : MonoBehaviour
         }
 
         // 최종 위치 확정
-        var finalActors = isAlly ?
-            BattleProcessManagerNew.Instance.GetAllyActors() :
-            BattleProcessManagerNew.Instance.GetEnemyActors();
+        UpdateActorPositions();
+    }
 
-        foreach (var actor in finalActors)
+    /// <summary>
+    /// 액터들의 위치 업데이트
+    /// </summary>
+    private void UpdateActorPositions()
+    {
+        // 아군
+        var allyActors = BattleProcessManagerNew.Instance.GetAllyActors();
+        foreach (var actor in allyActors)
         {
             if (actor != null && !actor.IsDead)
             {
-                actor.SetPosition(GetStandPosition(actor.BattleActorInfo.SlotIndex, isAlly));
+                actor.SetPosition(GetStandPosition(actor.BattleActorInfo.SlotIndex, true));
+            }
+        }
+
+        // 적군
+        var enemyActors = BattleProcessManagerNew.Instance.GetEnemyActors();
+        foreach (var actor in enemyActors)
+        {
+            if (actor != null && !actor.IsDead)
+            {
+                actor.SetPosition(GetStandPosition(actor.BattleActorInfo.SlotIndex, false));
             }
         }
     }
@@ -484,31 +479,31 @@ public class BattlePositionNew : MonoBehaviour
 
         if (Application.isPlaying)
         {
-            formation = GetCurrentFormation(isAlly);
+            formation = currentFormation;
         }
         else
         {
             // 에디터 모드에서는 배열에서 직접 가져오기
-            var formationType = isAlly ? currentAllyFormationType : currentEnemyFormationType;
-            var formationList = isAlly ? allyFormationDataList : enemyFormationDataList;
-
-            if (formationList != null && (int)formationType < formationList.Length)
+            if (formationDataList != null && (int)currentFormationType < formationDataList.Length)
             {
-                formation = formationList[(int)formationType];
+                formation = formationDataList[(int)currentFormationType];
             }
         }
 
-        if (formation == null || formation.positions == null) return;
+        if (formation == null) return;
+
+        var positions = isAlly ? formation.allyPositions : formation.enemyPositions;
+        if (positions == null) return;
 
         Color color = isAlly ? allyPreviewColor : enemyPreviewColor;
 
-        for (int i = 0; i < formation.positions.Length; i++)
+        for (int i = 0; i < positions.Length; i++)
         {
-            var pos = formation.positions[i];
+            var pos = positions[i];
             if (pos == null) continue;
 
             Vector3 worldStandPos = transform.TransformPoint(pos.standPosition);
-            Vector3 worldAttackPos = transform.TransformPoint(pos.attackPosition);
+            Vector3 worldAttackPos = transform.TransformPoint(formation.GetAttackPosition(i, isAlly));
 
             // 대기 위치
             Gizmos.color = color;
@@ -531,7 +526,7 @@ public class BattlePositionNew : MonoBehaviour
             // 슬롯 번호 표시
 #if UNITY_EDITOR
             UnityEditor.Handles.Label(worldStandPos + Vector3.up,
-                $"Slot {i}\n{(pos.isFrontRow ? "Front" : "Back")}");
+                $"{(isAlly ? "A" : "E")}{i}\n{(pos.isFrontRow ? "Front" : "Back")}");
 #endif
         }
     }

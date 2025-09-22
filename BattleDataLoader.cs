@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Cysharp.Threading.Tasks;
 using System.Threading.Tasks;
+using DG.DemiEditor;
 
 public static class BattleDataLoader
 {
@@ -120,6 +121,12 @@ public static class BattleDataLoader
         }
         else
         {
+            if( addressKey.IsNullOrEmpty() == true )
+            {
+                Debug.LogError($"[BattleDataLoader] LoadCharacterDataCharInfoAsync addressKey is Null : {characterId}");
+                return null;
+            }
+
             // 2. Addressable로 로드
             try
             {
