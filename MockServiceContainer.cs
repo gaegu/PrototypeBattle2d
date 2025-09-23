@@ -19,9 +19,19 @@ public class MockServiceContainer : IServiceContainer
         return CreateMockService<T>();
     }
 
+    public bool HasService<T>() where T : class
+    {
+        throw new NotImplementedException();
+    }
+
     public void RegisterService<T>(T service) where T : class
     {
         mockServices[typeof(T)] = service;
+    }
+
+    public void UnregisterService<T>() where T : class
+    {
+        throw new NotImplementedException();
     }
 
     private T CreateMockService<T>() where T : class

@@ -41,4 +41,34 @@ public class TownObjectService : ITownObjectService
     {
         manager?.LoadAllTownNpcInfoGroup();
     }
+
+    public ITownSupport GetTownObjectByType(TownObjectType type, string targetId)
+    {
+        throw new System.NotImplementedException();
+    }
+
+    public void DestroyTownObject()
+    {
+        throw new System.NotImplementedException();
+    }
+
+    public void UnloadAllTownNpcInfoGroup()
+    {
+        throw new System.NotImplementedException();
+    }
+
+    public bool IsMissionRelatedNpc(FieldMapDefine fieldMap, int npcId)
+    {
+        throw new System.NotImplementedException();
+    }
+
+    public void OperateDecoratorFactory()
+    {
+        throw new System.NotImplementedException();
+    }
+
+    public void OnEventClearTownTag()
+    {
+        throw new System.NotImplementedException();
+    }
 }

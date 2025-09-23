@@ -1,5 +1,6 @@
 using Cysharp.Threading.Tasks;
 using IronJade.UI.Core;
+using System;
 using UnityEngine;
 
 public class TownSceneService : ITownSceneService
@@ -8,6 +9,8 @@ public class TownSceneService : ITownSceneService
     private TownSceneManager manager => TownSceneManager.Instance;
 
     public TownInputSupport TownInputSupport => manager?.TownInputSupport;
+
+    public bool IsLoaded => throw new NotImplementedException();
 
     public async UniTask ShowTown(bool isShow)
     {
@@ -41,5 +44,55 @@ public class TownSceneService : ITownSceneService
     public void SetTownInput(Camera camera)
     {
       //  manager?.SetTownInput(camera);
+    }
+
+    public UniTask UpdateLobbyMenu()
+    {
+        throw new NotImplementedException();
+    }
+
+    public UniTask ChangeViewAsync(UIType uiType, UIType prevUIType)
+    {
+        throw new NotImplementedException();
+    }
+
+    public UniTask ChangePopupAsync(UIType uiType, UIType prevUIType)
+    {
+        throw new NotImplementedException();
+    }
+
+    public UniTask TalkInteracting(bool isTalk)
+    {
+        throw new NotImplementedException();
+    }
+
+    public UniTask TutorialStepAsync(TutorialExplain tutorialExplain)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void SetEventInteraction(Func<TownTalkInteraction, UniTask> eventFunc)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void ShowTownCanvas()
+    {
+        throw new NotImplementedException();
+    }
+
+    public void StopBGM()
+    {
+        throw new NotImplementedException();
+    }
+
+    public void SetActiveTownInput(bool isActive)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void PlayCutsceneState(bool isPlay)
+    {
+        throw new NotImplementedException();
     }
 }

@@ -7,6 +7,8 @@ public interface IServiceContainer
 {
     T GetService<T>() where T : class;
     void RegisterService<T>(T service) where T : class;
+    bool HasService<T>() where T : class;
+    void UnregisterService<T>() where T : class;
 }
 
 public class TownServiceContainer : IServiceContainer
@@ -56,5 +58,15 @@ public class TownServiceContainer : IServiceContainer
 
         services[serviceType] = service;
         Debug.Log($"[TownServiceContainer] Registered service: {serviceType.Name}");
+    }
+
+    public bool HasService<T>() where T : class
+    {
+        throw new NotImplementedException();
+    }
+
+    public void UnregisterService<T>() where T : class
+    {
+        throw new NotImplementedException();
     }
 }
