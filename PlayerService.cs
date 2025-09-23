@@ -1,5 +1,7 @@
 using Cysharp.Threading.Tasks;
 using IronJade.Table.Data;
+using System;
+using System.Threading;
 using UnityEngine;
 
 public class PlayerService : IPlayerService
@@ -16,10 +18,22 @@ public class PlayerService : IPlayerService
             await manager.CreateMyPlayerUnit();
     }
 
+
+  
+
     public async UniTask LoadMyPlayerCharacterObject()
     {
-        if (manager != null)
-            await manager.LoadMyPlayerCharacterObject();
+        try
+        {
+            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await PlayerManager.Instance.LoadMyPlayerCharacterObject()
+                .AttachExternalCancellation(cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            Debug.LogError("LoadMyPlayerCharacterObject timeout!");
+            return;
+        }
     }
 
     public void SetMyPlayerSpawn(TownObjectType objectType, string targetId, bool isLeaderPosition)

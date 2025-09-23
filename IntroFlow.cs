@@ -1162,7 +1162,6 @@ public class IntroFlow : BaseFlow
             UIManager.Instance.ShowLoginUIStateText(loginState);
         }
 
-        Debug.LogError("# RefreshLoginUI loginState + " + loginState.ToString());
 
     }
 
@@ -1176,8 +1175,6 @@ public class IntroFlow : BaseFlow
 
         UIManager.Instance.ShowDownloadProgress(text, value);
         UIManager.Instance.ShowLoginUIStateText(loginUIState);
-
-        Debug.LogError("# 22 RefreshLoginUI loginState + " + loginUIState.ToString());
 
     }
 

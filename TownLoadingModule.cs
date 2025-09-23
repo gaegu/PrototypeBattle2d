@@ -40,29 +40,32 @@ public class TownLoadingModule : ITownLoadingModule
 
         try
         {
+
+            Debug.LogError("11111");
+
             // 1. 타운 씬 로드
-            if (resourceService != null && !resourceService.CheckLoadedScene(StringDefine.SCENE_TOWN))
+            if (resourceService != null )
             {
                 await resourceService.LoadSceneAsync(StringDefine.SCENE_TOWN, LoadSceneMode.Additive);
             }
-
+            Debug.LogError("11222111");
             // 2. 현재 씬 로드 (휘발성 씬 우선)
             string sceneToLoad = model.IsVolatilityScene ? model.VolatilityScene : model.CurrentScene;
             if (!string.IsNullOrEmpty(sceneToLoad))
             {
                 string scenePath = model.GetScenePath(sceneToLoad);
-                if (resourceService != null && !resourceService.CheckLoadedScene(scenePath))
+                if (resourceService != null )
                 {
                     await resourceService.LoadSceneAsync(scenePath, LoadSceneMode.Additive);
                 }
             }
-
+            Debug.LogError("1113311");
             // 3. 이전 Flow 종료
             if (onEventExitPrevFlow != null)
             {
                 await onEventExitPrevFlow();
             }
-
+            Debug.LogError("1144111");
             // 4. 불필요한 씬 언로드
             if (resourceService != null)
             {
@@ -76,26 +79,31 @@ public class TownLoadingModule : ITownLoadingModule
 
                 foreach (var scene in scenesToUnload)
                 {
-                    if (resourceService.CheckLoadedScene(scene))
-                    {
-                        await resourceService.UnLoadSceneAsync(scene);
-                    }
+                    await resourceService.UnLoadSceneAsync(scene);
                 }
             }
+            Debug.LogError("1155111");
 
             // 5. 네트워크 데이터 요청
             if (networkService != null && !model.IsOffline)
             {
                 await RequestInitialData(networkService);
             }
-
+            Debug.LogError("16661111");
             // 6. 플레이어 생성
             if (playerService != null)
             {
                 await playerService.CreateMyPlayerUnit();
+
+                Debug.LogError("16661777111");
+
                 await playerService.LoadMyPlayerCharacterObject();
+
+                Debug.LogError("16668767861777111");
             }
 
+
+            Debug.LogError("1188111");
             // 7. NPC 로딩
             if (townObjectService != null)
             {
@@ -103,19 +111,25 @@ public class TownLoadingModule : ITownLoadingModule
                 await townObjectService.StartProcessAsync();
                 townObjectService.SetConditionRoad();
             }
-
+            Debug.LogError("1199111");
             // 8. UI 초기화
             if (townSceneService != null)
             {
                 await townSceneService.PlayLobbyMenu(true);
             }
-
+            Debug.LogError("19991111");
+          
+            
             // 9. 메모리 정리
-            if (resourceService != null)
+         /*   if (resourceService != null)
             {
                 await resourceService.UnloadUnusedAssets(true);
-            }
+            }*/
 
+
+
+
+            Debug.LogError("11231111");
             Debug.Log("[TownLoadingModule] Loading process completed");
         }
         catch (System.Exception e)

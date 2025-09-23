@@ -310,8 +310,6 @@ public interface IResourceService
 { // 씬 관리
     UniTask<Scene> LoadSceneAsync(string sceneName, LoadSceneMode mode);
     UniTask UnLoadSceneAsync(string sceneName);
-    bool CheckLoadedScene(string sceneName);
-    Scene GetScene(string sceneName);
 
     // 메모리 관리
     UniTask UnloadUnusedAssets(bool isGC = false);

@@ -143,6 +143,12 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
     public override void Enter()
     {
         Debug.Log("[NewTownFlow] Enter - Using Modular Architecture");
+       
+        // 모듈 초기화
+        InitializeModules();
+
+        // State Machine 초기화 (모듈 전달)
+        stateMachine = new TownStateMachine(Model, serviceContainer);
 
         AddTownObserverIds();
 
@@ -153,11 +159,6 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
         UIManager.Instance.SetEventUIProcess(OnEventHome, OnEventChangeState);
 
 
-        // 모듈 초기화
-        InitializeModules();
-
-        // State Machine 초기화 (모듈 전달)
-        stateMachine = new TownStateMachine(Model, serviceContainer);
 
     }
 
@@ -283,13 +284,22 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
         HandleMessageAsync(observerMessage, observerParam).Forget();
     }
 
+    private HashSet<Enum> processingMessages = new HashSet<Enum>();
 
     private async UniTask HandleMessageAsync(Enum observerMessage, IObserverParam observerParam)
     {
-        Debug.Log($"[NewTownFlow] HandleMessage: {observerMessage}");
-
-        switch (observerMessage)
+        if (!processingMessages.Add(observerMessage))
         {
+            Debug.LogWarning($"[NewTownFlow] Recursive: {observerMessage}");
+            return;
+        }
+
+        try
+        {
+            Debug.Log($"[NewTownFlow] HandleMessage: {observerMessage}");
+
+            switch (observerMessage)
+            {
             case FlowObserverID.PlayCutscene:
             case FlowObserverID.PlayStoryToon:
                 await HandleCutsceneMessage(observerParam);
@@ -318,6 +328,11 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
             default:
                 Debug.LogWarning($"[NewTownFlow] Unhandled observer message: {observerMessage}");
                 break;
+            }
+        }
+        finally
+        {
+            processingMessages.Remove(observerMessage);
         }
     }
 
@@ -1356,25 +1371,37 @@ private async UniTask HandleMobileOrientationRestore(UIType prevUIType, UIType u
 
     }
 
- 
+
 
     // 자동이동 관련 메서드들
     #region Auto Move System
 
+    private bool isStoppingAutoMove = false;
+
     private void StopAutoMove()
     {
-        Debug.Log("[NewTownFlow] Stopping auto move");
+        if (isStoppingAutoMove) return;
+        isStoppingAutoMove = true;
 
-        // 플레이어가 없으면 리턴
-        if (PlayerManager.Instance.MyPlayer?.TownPlayer?.CheckSafeNull() ?? true)
-            return;
+        try
+        {
+            Debug.Log("[NewTownFlow] Stopping auto move");
 
-        // 자동이동 중지 파라미터 생성
-        CharacterParam characterParam = new CharacterParam();
-        characterParam.SetAutoMoveState(CharacterAutoMoveState.Stop);
+            // 플레이어가 없으면 리턴
+            if (PlayerManager.Instance.MyPlayer?.TownPlayer?.CheckSafeNull() ?? true)
+                return;
 
-        // Observer 알림
-        ObserverManager.NotifyObserver(CharacterObserverID.AutoMoveCharacter, characterParam);
+            // 자동이동 중지 파라미터 생성
+            CharacterParam characterParam = new CharacterParam();
+            characterParam.SetAutoMoveState(CharacterAutoMoveState.Stop);
+
+            // Observer 알림
+            ObserverManager.NotifyObserver(CharacterObserverID.AutoMoveCharacter, characterParam);
+        }
+        finally
+        {
+            isStoppingAutoMove = false;
+        }
     }
 
     private void StartAutoMove(string targetId, TownObjectType targetType)
