@@ -13,7 +13,7 @@ using Unity.AI.Navigation;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public class TownFlow : BaseFlow, IObserver
+public class TownFlow : BaseFlow, IObserver, ITownFlow
 {
     //============================================================
     //=========    Coding rule에 맞춰서 작업 바랍니다.   =========

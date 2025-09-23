@@ -397,6 +397,9 @@ public class GameManager : MonoBehaviour
         if (PrologueManager.Instance != null && startPrologueFromCreateNickname)
             PrologueManager.Instance.StartFromMleOfficeIndex();
 
+        // Factory 등록
+        FlowManager.RegisterFlowFactory(new TownFlowFactory());
+
         FlowManager.Instance.ChangeFlow(FlowType.LogoFlow, isStack: false).Forget();
 
         UpdateAsync().Forget();
