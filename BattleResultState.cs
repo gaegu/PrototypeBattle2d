@@ -1,45 +1,59 @@
 using Cysharp.Threading.Tasks;
+using IronJade.UI.Core;
+using System.Collections.Generic;
 using UnityEngine;
 
-public class BattleResultState : ITownState
+public class BattleResultState : ServicedTownStateBase
 {
-    public string StateName => "BattleResult";
+    public override string StateName => "BattleResult";
 
-    public async UniTask Enter(TownStateContext context)
+    public BattleResultState(IServiceContainer container = null) : base(container) { }
+
+    protected override async UniTask OnEnter(TownStateContext context)
     {
-        Debug.Log($"[{StateName}] Enter - Processing battle results");
+        Debug.Log($"[{StateName}] Processing battle result");
 
-        // 전투 결과 처리 로직
-        var battleInfo = context.Model.BattleInfo;
-        if (battleInfo != null)
+        // 전투 결과 처리
+      /*  var battleResult = context.GetParameter<BattleResult>("Result");
+
+        if (battleResult != null && battleResult.IsVictory)
         {
-            // 전투 보상 처리
-            // UI 표시 등
+            // 보상 처리
+            var rewards = context.GetParameter<List<Goods>>("Rewards");
+            if (rewards != null && rewards.Count > 0)
+            {
+                await ShowRewardUI(rewards);
+            }
+        }
+      */
+
+        // 타운 복귀
+        if (TownSceneService != null)
+        {
+            await TownSceneService.ShowTown(true);
         }
 
-        // 타운으로 돌아오기
-        await TransitionToTown(context);
+        // 전투 씬 언로드
+        if (ResourceService != null)
+        {
+            await ResourceService.UnLoadSceneAsync("Battle");
+        }
     }
 
-    private async UniTask TransitionToTown(TownStateContext context)
+    private async UniTask ShowRewardUI(List<Goods> rewards)
     {
-        // 타운 복귀 로직
-        context.Model.SetBattleInfo(null);  // 전투 정보 클리어
+        if (UIService != null)
+        {
+            var controller = UIService.GetController(UIType.RewardPopup);
+            if (controller != null)
+            {
+                await UIService.EnterAsync(controller);
+            }
+        }
     }
 
-    public async UniTask Execute(TownStateContext context)
+    public override bool CanTransitionTo(FlowState nextState)
     {
-        await UniTask.Yield();
-    }
-
-    public async UniTask Exit()
-    {
-        Debug.Log($"[{StateName}] Exit");
-    }
-
-    public bool CanTransitionTo(FlowState nextState)
-    {
-        // 전투 결과에서는 Home이나 None으로만 전환
-        return nextState == FlowState.Home || nextState == FlowState.None;
+        return nextState != FlowState.Battle;
     }
 }

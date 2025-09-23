@@ -1,14 +1,14 @@
-// TownFlowDebugMenu.cs (새 파일 - 선택사항)
-#if UNITY_EDITOR
 using UnityEngine;
 
 public class TownFlowDebugMenu : MonoBehaviour
 {
     private bool showDebugMenu = false;
+    private Rect windowRect = new Rect(20, 20, 250, 150);
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.F8))
+        // F12로 디버그 메뉴 토글
+        if (Input.GetKeyDown(KeyCode.F12))
         {
             showDebugMenu = !showDebugMenu;
         }
@@ -18,24 +18,62 @@ public class TownFlowDebugMenu : MonoBehaviour
     {
         if (!showDebugMenu) return;
 
-        GUILayout.BeginArea(new Rect(10, 10, 300, 200));
-        GUILayout.Box("TownFlow Debug Menu");
+        windowRect = GUI.Window(0, windowRect, DrawDebugWindow, "TownFlow Debug");
+    }
 
-        bool isUsingNew = TownFlowFactory.IsUsingNewTownFlow();
-        GUILayout.Label($"Current: {(isUsingNew ? "NEW" : "LEGACY")} TownFlow");
+    void DrawDebugWindow(int windowID)
+    {
+        GUILayout.BeginVertical();
 
-        if (GUILayout.Button("Switch to " + (isUsingNew ? "LEGACY" : "NEW")))
+        // 현재 아키텍처 표시
+        bool isNewArch = TownFlowFactory.IsUsingNewArchitecture();
+        GUILayout.Label($"Current: {(isNewArch ? "New Architecture" : "Legacy")}");
+
+        // 아키텍처 전환 버튼
+        if (GUILayout.Button(isNewArch ? "Switch to Legacy" : "Switch to New"))
         {
-            TownFlowFactory.ForceUseNewTownFlow(!isUsingNew);
+            TownFlowFactory.SetUseNewArchitecture(!isNewArch);
+
+            // Flow 재시작 필요 알림
+            Debug.LogWarning("[TownFlowDebugMenu] Architecture changed. Restart flow to apply.");
         }
 
-        if (GUILayout.Button("Reload TownFlow"))
+        // State Machine 정보 (New Architecture만)
+        if (isNewArch)
         {
-            // 현재 Flow 재시작
-            Debug.Log("Reloading TownFlow...");
+            var currentFlow = FlowManager.Instance?.CurrentFlow as NewTownFlow;
+            if (currentFlow != null)
+            {
+                GUILayout.Label($"State: {currentFlow.Model.CurrentUI}");
+                GUILayout.Label($"Loading: {currentFlow.Model.IsLoading}");
+            }
         }
 
-        GUILayout.EndArea();
+        // Flow 재시작 버튼
+        if (GUILayout.Button("Restart TownFlow"))
+        {
+            RestartTownFlow();
+        }
+
+        GUILayout.EndVertical();
+
+        GUI.DragWindow();
+    }
+
+    private async void RestartTownFlow()
+    {
+        Debug.Log("[TownFlowDebugMenu] Restarting TownFlow...");
+
+        // 현재 Flow 종료
+        if (FlowManager.Instance?.CurrentFlow != null)
+        {
+            await FlowManager.Instance.CurrentFlow.Exit();
+        }
+
+        // 새 Flow 생성 및 시작
+        ITownFlow newFlow = TownFlowFactory.CreateTownFlow();
+        newFlow.Enter();
+
+        Debug.Log("[TownFlowDebugMenu] TownFlow restarted");
     }
 }
-#endif

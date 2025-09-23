@@ -4,28 +4,60 @@ using UnityEngine;
 public abstract class TownStateBase : ITownState
 {
     public abstract string StateName { get; }
+    public virtual bool IsInterruptible => true;
+    public virtual int Priority => 0;
 
-    // 기본 구현 (서비스 불필요한 State용)
-    public virtual async UniTask Enter(TownStateContext context)
+    protected TownStateContext stateContext;
+
+    public async UniTask Enter(TownStateContext context)
     {
+        stateContext = context;
         Debug.Log($"[{StateName}] Enter");
-        await OnEnter(context);
-    }
 
-    protected abstract UniTask OnEnter(TownStateContext context);
+        try
+        {
+            await OnEnter(context);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[{StateName}] Enter failed: {e}");
+            throw;
+        }
+    }
 
     public virtual async UniTask Execute(TownStateContext context)
     {
-        await UniTask.Yield();
+        await OnExecute(context);
     }
 
     public virtual async UniTask Exit()
     {
         Debug.Log($"[{StateName}] Exit");
+
+        try
+        {
+            await OnExit();
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[{StateName}] Exit failed: {e}");
+            throw;
+        }
+        finally
+        {
+            stateContext = null;
+        }
     }
 
-    public virtual bool CanTransitionTo(FlowState nextState)
+    public abstract bool CanTransitionTo(FlowState nextState);
+
+    protected abstract UniTask OnEnter(TownStateContext context);
+    protected virtual async UniTask OnExecute(TownStateContext context)
     {
-        return true;
+        await UniTask.Yield();
+    }
+    protected virtual async UniTask OnExit()
+    {
+        await UniTask.Yield();
     }
 }

@@ -28,6 +28,8 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
     private readonly ITownObjectService townObjectService;
     private readonly IMissionService missionService;
     private readonly IResourceService resourceService;
+    private readonly INetworkService networkService;
+
     #endregion
 
 
@@ -47,8 +49,8 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
     private void InitializeModules()
     {
         // 모듈 생성
-        loadingModule = new TownLoadingModule();
-        warpModule = new TownWarpModule();
+        loadingModule = new TownLoadingModule(serviceContainer);
+        warpModule = new TownWarpModule(serviceContainer);
 
         // Dictionary에 등록
         modules = new Dictionary<Type, ITownFlowModule>
@@ -81,6 +83,7 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
     // 기본 생성자 (프로덕션용)
     public NewTownFlow() : this(new TownServiceContainer())
     {
+
     }
 
     // 의존성 주입 생성자 (테스트용)
@@ -94,6 +97,8 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
         townObjectService = container.GetService<ITownObjectService>();
         missionService = container.GetService<IMissionService>();
         resourceService = container.GetService<IResourceService>();
+        // 네트워크 서비스 추가
+        networkService = container.GetService<INetworkService>();
 
         Debug.Log("[NewTownFlow] Initialized with dependency injection");
     }
@@ -168,14 +173,26 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
 
         RemoveTownObserverIds();
 
+        // State Machine 정리
+        stateMachine?.Dispose();
+        stateMachine = null;
+
 
         await CleanUpModules();
 
         // 정리 (서비스 사용)
-        townObjectService.ClearTownObjects();
-        await resourceService.UnLoadSceneAsync(Model.CurrentScene);
-        await resourceService.UnLoadSceneAsync(StringDefine.SCENE_TOWN);
-        await resourceService.UnloadUnusedAssets(true);
+        if (townObjectService != null)
+        {
+            townObjectService.ClearTownObjects();
+        }
+
+        if (resourceService != null)
+        {
+            await resourceService.UnLoadSceneAsync(Model.CurrentScene);
+            await resourceService.UnLoadSceneAsync(StringDefine.SCENE_TOWN);
+            await resourceService.UnloadUnusedAssets(true);
+        }
+
     }
 
     public override async UniTask LoadingProcess(Func<UniTask> onEventExitPrevFlow)
@@ -183,99 +200,34 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
         Debug.Log("[NewTownFlow] LoadingProcess - Using Modules");
 
         Model.SetLoading(true);
-        bool isOpenExStage = false;
-
 
         try
         {
-            // Loading Module 사용
             if (loadingModule != null)
             {
-                // 1. 씬 로딩 (서비스 사용)
-                if (!resourceService.CheckLoadedScene(StringDefine.SCENE_TOWN))
+                await loadingModule.ProcessLoading(onEventExitPrevFlow);
+
+                // UI 진입
+                var uiService = serviceContainer?.GetService<IUIService>();
+                if (uiService != null)
                 {
-                    await resourceService.LoadSceneAsync(StringDefine.SCENE_TOWN, LoadSceneMode.Additive);
+                    await uiService.EnterAsync(UIType.LobbyView);
                 }
-
-
-                // 전투 복귀 특별 처리
-                if (Model.IsBattleBack)
-                {
-                    await HandleBattleReturnNetwork();
-                }
-
-
-                // 2. 이전 Flow 종료
-                await onEventExitPrevFlow();
-
-                // 씬 언로드
-                await UniTask.WhenAll(
-                    UtilModel.Resources.UnLoadSceneAsync(StringDefine.SCENE_ROOT),
-                    UtilModel.Resources.UnLoadSceneAsync(StringDefine.SCENE_LOGO),
-                    UtilModel.Resources.UnLoadSceneAsync(StringDefine.SCENE_INTRO),
-                    UtilModel.Resources.UnLoadSceneAsync(StringDefine.SCENE_BATTLE)
-                );
-
-                // ===== 네트워크 요청 추가 =====
-                await RequestDataFromNetwork();
-
-
-
-
-                // 3. 플레이어 생성 (서비스 사용)
-                await playerService.CreateMyPlayerUnit();
-                await playerService.LoadMyPlayerCharacterObject();
-
-                // 4. NPC 로딩 (서비스 사용)
-                townObjectService.LoadAllTownNpcInfoGroup();
-                await townObjectService.StartProcessAsync();
-                townObjectService.SetConditionRoad();
-
-                // 5. UI 설정 (서비스 사용)
-                await townSceneService.PlayLobbyMenu(true);
-                await UIManager.Instance.EnterAsync(UIType.LobbyView);  // 아직 UIService 미구현
             }
             else
             {
                 // Fallback
-                Debug.LogWarning("[NewTownFlow] LoadingModule not available, using fallback");
+                Debug.LogWarning("[NewTownFlow] LoadingModule not available");
                 await onEventExitPrevFlow();
-                await UIManager.Instance.EnterAsync(UIType.LobbyView);
             }
         }
         catch (Exception e)
         {
             Debug.LogError($"[NewTownFlow] LoadingProcess failed: {e}");
-            // 에러 시 최소 동작
-            await UIManager.Instance.EnterAsync(UIType.LobbyView);
         }
         finally
         {
-       /*     if (isPrevStack) // 이전 UI가 있을 때
-            {
-                await UIManager.Instance.LoadPrevStackNavigator();
-
-                // ===== 추가: ExStage 오픈 체크 =====
-                if (Model.IsBattleBack && UIManager.Instance.CheckOpenCurrentView(UIType.StageDungeonView))
-                {
-                    var exStageGroupModel = DungeonManager.Instance.GetDungeonGroupModel<ExStageGroupModel>();
-                    var stageDungeonGroupModel = DungeonManager.Instance.GetDungeonGroupModel<StageDungeonGroupModel>();
-                    var stageDungeonTableData = exStageGroupModel.GetCurrentExStageTableData(stageDungeonGroupModel);
-
-                    if (Model.BattleInfo.ContentsDataID == stageDungeonTableData.GetCONDITION_STAGE_DUNGEON())
-                        isOpenExStage = true;
-                }
-            }*/
-
-
-            // LoadingProcess 마지막 부분
-            Model.SetBattleInfo(null);
-
-
             Model.SetLoading(false);
-
-            if (isOpenExStage)
-                ObserverManager.NotifyObserver(DungeonObserverID.FocusExStage, null);
         }
     }
 

@@ -1,5 +1,6 @@
-using Cinemachine;
 using Cysharp.Threading.Tasks;
+using Cinemachine;
+using IronJade.Camera.Core;
 using IronJade.UI.Core;
 using UnityEngine;
 
@@ -7,9 +8,8 @@ public class CameraServiceWrapper : ICameraService
 {
     private CameraManager manager => CameraManager.Instance;
 
-    #region Camera Management
-
     public Transform TownCamera => manager?.TownCamera;
+    public float RecomposerPan => manager?.RecomposerPan ?? 0f;
 
     public Camera GetCamera(GameCameraType type)
     {
@@ -21,10 +21,6 @@ public class CameraServiceWrapper : ICameraService
         manager?.SetActiveTownCameras(isActive);
     }
 
-    #endregion
-
-    #region Brain
-
     public void SetEnableBrain(bool isEnable)
     {
         manager?.SetEnableBrain(isEnable);
@@ -35,18 +31,10 @@ public class CameraServiceWrapper : ICameraService
         return manager?.GetBrainCamera();
     }
 
-    #endregion
-
-    #region DOF
-
     public void RestoreDofTarget()
     {
         manager?.RestoreDofTarget();
     }
-
-    #endregion
-
-    #region Cinemachine
 
     public void SetLiveVirtualCamera()
     {
@@ -59,18 +47,10 @@ public class CameraServiceWrapper : ICameraService
             await manager.WaitCinemachineClearShotBlend();
     }
 
-    #endregion
-
-    #region Talk Camera
-
     public void SetTalkCamera(bool isTalk)
     {
         manager?.SetTalkCamera(isTalk);
     }
-
-    #endregion
-
-    #region Volume
 
     public void ChangeVolumeType(VolumeType volumeType)
     {
@@ -87,24 +67,10 @@ public class CameraServiceWrapper : ICameraService
         manager?.ChangeFreeLockVolume();
     }
 
-    #endregion
-
-    #region Additive Prefab
-
     public void SetAdditivePrefabCameraState(UIType uiType)
     {
         manager?.SetAdditivePrefabCameraState(uiType);
     }
-
-    #endregion
-
-    #region Properties
-
-    public float RecomposerPan => manager.RecomposerPan;
-
-    #endregion
-
-    #region Render
 
     public async UniTask ShowBackgroundRenderTexture(bool isShow)
     {
@@ -116,6 +82,4 @@ public class CameraServiceWrapper : ICameraService
     {
         manager?.RestoreCharacterCameraCullingMask();
     }
-
-    #endregion
 }

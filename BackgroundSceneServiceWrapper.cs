@@ -1,4 +1,5 @@
 using Cysharp.Threading.Tasks;
+using Cinemachine;
 using IronJade.UI.Core;
 using UnityEngine;
 
@@ -6,7 +7,7 @@ public class BackgroundSceneServiceWrapper : IBackgroundSceneService
 {
     private BackgroundSceneManager manager => BackgroundSceneManager.Instance;
 
-    #region Town Group
+    public Transform TownObjectParent => manager?.TownObjectParent?.transform;
 
     public void ShowTownGroup(bool isShow)
     {
@@ -23,10 +24,6 @@ public class BackgroundSceneServiceWrapper : IBackgroundSceneService
         return manager?.CheckActiveTown() ?? false;
     }
 
-    #endregion
-
-    #region View Change
-
     public async UniTask ChangeViewAsync(UIType uiType, UIType prevUIType)
     {
         if (manager != null)
@@ -39,38 +36,18 @@ public class BackgroundSceneServiceWrapper : IBackgroundSceneService
             await manager.ChangePopupAsync(uiType, prevUIType);
     }
 
-    #endregion
-
-    #region Decorator
-
     public void OperateTownDecoratorFactory()
     {
         manager?.OperateTownDecoratorFactory();
     }
-
-    #endregion
-
-    #region Cinemachine
 
     public void SetCinemachineFollowTarget()
     {
         manager?.SetCinemachineFollowTarget();
     }
 
-    #endregion
-
-    #region Cutscene
-
     public void PlayCutsceneState(bool isShow, bool isTownCutscene)
     {
         manager?.PlayCutsceneState(isShow, isTownCutscene);
     }
-
-    #endregion
-
-    #region Properties
-
-    public Transform TownObjectParent => manager?.TownObjectParent?.transform;
-
-    #endregion
 }

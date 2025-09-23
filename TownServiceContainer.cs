@@ -27,8 +27,12 @@ public class TownServiceContainer : IServiceContainer
         RegisterService<ITownSceneService>(new TownSceneService());
         RegisterService<IPlayerService>(new PlayerService());
         RegisterService<ITownObjectService>(new TownObjectService());
-      //  RegisterService<IMissionService>(new MissionService());
-      //  RegisterService<IResourceService>(new ResourceService());
+        RegisterService<IMissionService>(new MissionService());
+        RegisterService<IResourceService>(new ResourceService());
+        RegisterService<IUIService>(new UIServiceWrapper()); // 추가
+        RegisterService<INetworkService>(new NetworkServiceWrapper()); // 추가
+        RegisterService<ICameraService>(new CameraServiceWrapper()); // 추가
+
 
         Debug.Log($"[TownServiceContainer] Registered {services.Count} services");
     }
@@ -62,11 +66,21 @@ public class TownServiceContainer : IServiceContainer
 
     public bool HasService<T>() where T : class
     {
-        throw new NotImplementedException();
+        Type serviceType = typeof(T);
+        return services.ContainsKey(serviceType);
     }
 
     public void UnregisterService<T>() where T : class
     {
-        throw new NotImplementedException();
+        Type serviceType = typeof(T);
+
+        if (services.Remove(serviceType))
+        {
+            Debug.Log($"[TownServiceContainer] Unregistered service: {serviceType.Name}");
+        }
+        else
+        {
+            Debug.LogWarning($"[TownServiceContainer] Service {serviceType.Name} not found for unregistration");
+        }
     }
 }

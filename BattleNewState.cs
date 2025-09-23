@@ -1,42 +1,43 @@
 using Cysharp.Threading.Tasks;
-using IronJade.Flow.Core;
 using UnityEngine;
 
 public class BattleNewState : ServicedTownStateBase
 {
     public override string StateName => "Battle";
-    public BattleNewState(IServiceContainer container = null) : base(container)
-    {
-    }
+
+    public BattleNewState(IServiceContainer container = null) : base(container) { }
 
     protected override async UniTask OnEnter(TownStateContext context)
     {
-        var battleInfo = context.GetParameter<BattleInfo>("BattleInfo");
+        Debug.Log($"[{StateName}] Entering battle");
 
-        // 전투는 복잡하므로 서비스 사용
-        if (PlayerService != null)
+        var battleInfo = context.GetParameter<BattleInfo>("BattleInfo");
+        if (battleInfo == null)
         {
-            // 서비스를 통한 처리
-           // await PlayerService.SavePlayerState();
+            Debug.LogError($"[{StateName}] No battle info provided");
+            return;
         }
 
-        // BattleFlow 전환
+        // 전투 씬 로드
+        if (ResourceService != null)
+        {
+            await ResourceService.LoadSceneAsync("Battle", UnityEngine.SceneManagement.LoadSceneMode.Additive);
+        }
+
+        // 타운 숨기기
+        if (TownSceneService != null)
+        {
+            await TownSceneService.ShowTown(false);
+        }
+
+        // 전투 Flow로 전환
         await FlowManager.Instance.ChangeFlow(FlowType.BattleFlow);
-    }
-
-    public override async UniTask Execute(TownStateContext context)
-    {
-        await UniTask.Yield();
-    }
-
-    public override async UniTask Exit()
-    {
-        Debug.Log($"[{StateName}] Exit");
     }
 
     public override bool CanTransitionTo(FlowState nextState)
     {
-        // 전투 중에는 Home으로만 전환 가능
-        return nextState == FlowState.Home;
+        // 전투 중에는 특정 상태로만 전환
+        return nextState == FlowState.BattleResult ||
+               nextState == FlowState.None;
     }
 }

@@ -1,10 +1,15 @@
 // ITownFlowModule.cs (새 파일)
 using Cysharp.Threading.Tasks;
+using System;
 
 public interface ITownFlowModule
 {
     void Initialize(TownFlowModel model);
     UniTask CleanUp();
+    bool IsActive { get; }
+    // 의존성 주입 추가
+    void SetServiceContainer(IServiceContainer container);
+
 }
 
 // 각 모듈별 인터페이스
@@ -23,10 +28,8 @@ public interface ITownInteractionModule : ITownFlowModule
 
 public interface ITownLoadingModule : ITownFlowModule
 {
-    UniTask LoadTownScene(string sceneName);
-    UniTask CreatePlayer();
-    UniTask LoadNPCs();
-    UniTask SetupUI();
+    UniTask ProcessLoading(Func<UniTask> onEventExitPrevFlow);
+
 }
 
 public interface ITownMissionModule : ITownFlowModule

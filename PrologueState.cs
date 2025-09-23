@@ -1,43 +1,45 @@
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 
-public class PrologueState : ITownState
+public class PrologueState : ServicedTownStateBase
 {
-    public string StateName => "Prologue";
+    public override string StateName => "Prologue";
 
-    public async UniTask Enter(TownStateContext context)
+    public PrologueState(IServiceContainer container = null) : base(container) { }
+
+    protected override async UniTask OnEnter(TownStateContext context)
     {
-        Debug.Log($"[{StateName}] Enter - Starting prologue");
+        Debug.Log($"[{StateName}] Starting prologue");
 
-        // 프롤로그 관련 처리
-        if (PrologueManager.Instance.IsProgressing)
+        // 프롤로그 매니저 시작
+        /*if (PrologueManager.Instance != null)
         {
-            // 프롤로그 진행 로직
-            await HandlePrologueSequence(context);
+            await PrologueManager.Instance.();
+        }*/
+
+
+        // UI 숨기기
+        if (TownSceneService != null)
+        {
+            await TownSceneService.PlayLobbyMenu(false);
         }
     }
 
-    private async UniTask HandlePrologueSequence(TownStateContext context)
+    public override async UniTask Exit()
     {
-        // 프롤로그 시퀀스 처리
-        Debug.Log($"[{StateName}] Handling prologue sequence");
+        // UI 복원
+        if (TownSceneService != null)
+        {
+            await TownSceneService.PlayLobbyMenu(true);
+        }
+
+        await base.Exit();
     }
 
-    public async UniTask Execute(TownStateContext context)
+    public override bool CanTransitionTo(FlowState nextState)
     {
-        await UniTask.Yield();
-    }
-
-    public async UniTask Exit()
-    {
-        Debug.Log($"[{StateName}] Exit");
-    }
-
-    public bool CanTransitionTo(FlowState nextState)
-    {
-        // 프롤로그 중에는 제한적 전환만 허용
-        return nextState == FlowState.None ||
-               nextState == FlowState.Tutorial ||
-               nextState == FlowState.Home;
+        // 프롤로그 중에는 제한적 전환
+        return nextState == FlowState.Tutorial ||
+               nextState == FlowState.None;
     }
 }

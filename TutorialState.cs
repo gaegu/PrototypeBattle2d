@@ -1,41 +1,50 @@
 using Cysharp.Threading.Tasks;
+using IronJade.UI.Core;
 using UnityEngine;
 
-public class TutorialState : ITownState
+public class TutorialState : ServicedTownStateBase
 {
-    public string StateName => "Tutorial";
+    public override string StateName => "Tutorial";
 
-    public async UniTask Enter(TownStateContext context)
+    public TutorialState(IServiceContainer container = null) : base(container) { }
+
+    protected override async UniTask OnEnter(TownStateContext context)
     {
-        Debug.Log($"[{StateName}] Enter");
+        Debug.Log($"[{StateName}] Starting tutorial");
 
-        // TutorialExplain 파라미터 가져오기
         var tutorialExplain = context.GetParameter<TutorialExplain>("TutorialExplain");
 
-        if (tutorialExplain != null)
+        if (tutorialExplain == null)
         {
-            Debug.Log($"[{StateName}] Starting tutorial: {tutorialExplain}");
-            await TownSceneManager.Instance.TutorialStepAsync(tutorialExplain);
+            Debug.LogError($"[{StateName}] No tutorial data");
+            return;
         }
-        else
+
+        // 튜토리얼 UI 표시
+        if (UIService != null)
         {
-            Debug.LogWarning($"[{StateName}] No tutorial type specified");
+            var controller = UIService.GetController(UIType.TutorialPopup);
+            if (controller != null)
+            {
+                await UIService.EnterAsync(controller);
+            }
         }
+
+        // 입력 제한
+        TownSceneService?.TownInputSupport?.SetInput(false);
     }
 
-    public async UniTask Execute(TownStateContext context)
+    public override async UniTask Exit()
     {
-        await UniTask.Yield();
+        // 입력 복원
+        TownSceneService?.TownInputSupport?.SetInput(true);
+        await base.Exit();
     }
 
-    public async UniTask Exit()
-    {
-        Debug.Log($"[{StateName}] Exit");
-    }
-
-    public bool CanTransitionTo(FlowState nextState)
+    public override bool CanTransitionTo(FlowState nextState)
     {
         // 튜토리얼 중에는 제한적 전환
-        return nextState == FlowState.None || nextState == FlowState.Home;
+        return nextState == FlowState.None ||
+               nextState == FlowState.Home;
     }
 }

@@ -1,28 +1,33 @@
 using Cysharp.Threading.Tasks;
-using IronJade.UI.Core;
 using UnityEngine;
 
-public class HomeState : TownStateBase
+public class HomeState : ServicedTownStateBase
 {
     public override string StateName => "Home";
 
+    public HomeState(IServiceContainer container = null) : base(container) { }
+
     protected override async UniTask OnEnter(TownStateContext context)
     {
-        // 단순 작업은 그냥 싱글톤 사용 (점진적 전환)
-        UIManager.Instance.Home();
-        TownObjectManager.Instance.SetConditionRoad();
-        await UtilModel.Resources.UnloadUnusedAssets(true);
-        await UIManager.Instance.BackToTarget(UIType.LobbyView, false);
-    }
+        Debug.Log($"[{StateName}] Returning to home");
 
-    public override async UniTask Execute(TownStateContext context)
-    {
-        await UniTask.Yield();
-    }
+        // UI 초기화
+        if (UIService != null)
+        {
+            UIService.Home();
+        }
 
-    public override async UniTask Exit()
-    {
-        Debug.Log($"[{StateName}] Exit");
+        // 타운 오브젝트 갱신
+        if (TownObjectService != null)
+        {
+            TownObjectService.SetConditionRoad();
+        }
+
+        // 메모리 정리
+        if (ResourceService != null)
+        {
+            await ResourceService.UnloadUnusedAssets(true);
+        }
     }
 
     public override bool CanTransitionTo(FlowState nextState)

@@ -1,29 +1,40 @@
-// TownFlowFactory.cs (새 파일)
-using UnityEngine;
 using IronJade.Flow.Core;
+using UnityEngine;
 
 public class TownFlowFactory : IFlowFactory
 {
-    private static bool useNewTownFlow = false;
-
-    /// <summary>
-    /// TownFlow 인스턴스 생성
-    /// </summary>
-    public static BaseFlow CreateTownFlow()
+    private static bool useNewTownFlow = true; // 새 아키텍처 사용 플래그
+    public FlowType GetFlowType()
     {
+        return FlowType.TownFlow;
+    }
+    public BaseFlow CreateFlow()
+    {
+        return CreateTownFlow() as BaseFlow;
+    }
+
+    public static ITownFlow CreateTownFlow()
+    {
+        // 환경 변수나 설정으로 제어 가능
 #if UNITY_EDITOR
-        // 에디터에서 F9 키로 전환 가능
-        if (Input.GetKeyDown(KeyCode.F9))
-        {
-            useNewTownFlow = !useNewTownFlow;
-            Debug.Log($"[TownFlowFactory] Switched to {(useNewTownFlow ? "NEW" : "LEGACY")} TownFlow");
-        }
+        useNewTownFlow = UnityEditor.EditorPrefs.GetBool("UseNewTownFlow", true);
 #endif
 
         if (useNewTownFlow)
         {
-            Debug.Log("[TownFlowFactory] Creating NewTownFlow");
-            return new NewTownFlow();
+            Debug.Log("[TownFlowFactory] Creating NewTownFlow (Modular Architecture)");
+
+            // 서비스 컨테이너 생성
+            IServiceContainer serviceContainer = new TownServiceContainer();
+
+            // 서비스 검증
+            if (!ValidateServices(serviceContainer))
+            {
+                Debug.LogWarning("[TownFlowFactory] Service validation failed, falling back to legacy TownFlow");
+                return new TownFlow();
+            }
+
+            return new NewTownFlow(serviceContainer);
         }
         else
         {
@@ -32,33 +43,36 @@ public class TownFlowFactory : IFlowFactory
         }
     }
 
-    /// <summary>
-    /// 강제로 특정 버전 사용
-    /// </summary>
-    public static void ForceUseNewTownFlow(bool useNew)
+    private static bool ValidateServices(IServiceContainer container)
+    {
+        // 필수 서비스 체크
+        bool hasRequiredServices =
+            container.HasService<ITownSceneService>() &&
+            container.HasService<IPlayerService>() &&
+            container.HasService<ITownObjectService>() &&
+            container.HasService<IResourceService>();
+
+        if (!hasRequiredServices)
+        {
+            Debug.LogError("[TownFlowFactory] Required services missing");
+        }
+
+        return hasRequiredServices;
+    }
+
+    // 런타임 전환 지원
+    public static void SetUseNewArchitecture(bool useNew)
     {
         useNewTownFlow = useNew;
-        Debug.Log($"[TownFlowFactory] Force use {(useNew ? "NEW" : "LEGACY")} TownFlow");
+        Debug.Log($"[TownFlowFactory] Architecture switched to: {(useNew ? "New" : "Legacy")}");
+
+#if UNITY_EDITOR
+        UnityEditor.EditorPrefs.SetBool("UseNewTownFlow", useNew);
+#endif
     }
 
-    /// <summary>
-    /// 현재 사용 중인 버전 확인
-    /// </summary>
-    public static bool IsUsingNewTownFlow()
+    public static bool IsUsingNewArchitecture()
     {
         return useNewTownFlow;
-    }
-
-    public bool CanHandle(FlowType flowType)
-    {
-        return flowType == FlowType.TownFlow;
-    }
-
-    public BaseFlow CreateFlow(FlowType flowType)
-    {
-        if (flowType != FlowType.TownFlow)
-            return null;
-
-        return useNewTownFlow ? new NewTownFlow() : new TownFlow();
     }
 }

@@ -7,7 +7,6 @@ public class WarpState : ServicedTownStateBase
     public override string StateName => "Warp";
     private readonly ITownWarpModule warpModule;
 
-    // 모듈을 생성자로 주입받도록 수정
     public WarpState(IServiceContainer container = null, ITownWarpModule module = null)
         : base(container)
     {
@@ -30,7 +29,6 @@ public class WarpState : ServicedTownStateBase
         PlayerService?.MyPlayer?.SetInteracting(false);
     }
 
-
     public override async UniTask Exit()
     {
         Debug.Log($"[{StateName}] Exit");
@@ -39,9 +37,9 @@ public class WarpState : ServicedTownStateBase
         var model = warpModule as ITownFlowModule;
         await model.CleanUp();
 
-        // 입력 복원
-        TownSceneManager.Instance.TownInputSupport.SetInput(true);
-        PlayerManager.Instance.MyPlayer.SetInteracting(false);
+        // 서비스 사용으로 변경 (싱글톤 제거)
+        TownSceneService?.TownInputSupport?.SetInput(true);
+        PlayerService?.MyPlayer?.SetInteracting(false);
     }
 
     public override bool CanTransitionTo(FlowState nextState)
