@@ -245,7 +245,18 @@ public class TownStateMachine
     {
         transitionCts?.Cancel();
         transitionCts?.Dispose();
+        transitionCts = null;
+
         transitionQueue?.Clear();
+
+        // State 정리
+        if (currentState != null)
+        {
+            currentState = null;
+        }
+
+        states?.Clear();
+        context = null;
     }
 
     // 디버그용 메서드

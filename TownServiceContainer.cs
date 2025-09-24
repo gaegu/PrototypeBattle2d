@@ -32,7 +32,7 @@ public class TownServiceContainer : IServiceContainer
         RegisterService<IUIService>(new UIServiceWrapper()); // 추가
         RegisterService<INetworkService>(new NetworkServiceWrapper()); // 추가
         RegisterService<ICameraService>(new CameraServiceWrapper()); // 추가
-
+        RegisterService<IBackgroundSceneService>(new BackgroundSceneServiceWrapper());
 
         Debug.Log($"[TownServiceContainer] Registered {services.Count} services");
     }

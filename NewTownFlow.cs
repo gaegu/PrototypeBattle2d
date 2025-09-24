@@ -143,7 +143,6 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
     public override void Enter()
     {
         Debug.Log("[NewTownFlow] Enter - Using Modular Architecture");
-       
         // 모듈 초기화
         InitializeModules();
 
@@ -155,12 +154,82 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
         // 기본 설정
         Model.SetCurrentUI(UIType.None);
         Model.SetCurrentViewUI(UIType.None);
+
+        if (string.IsNullOrEmpty(Model.CurrentScene))
+            Model.SetCurrentScene(FieldMapDefine.FIELDMAP_MID_INDISTREET_MLEOFFICEINDOOR_01.ToString());
+
         GameManager.Instance.ActiveRendererFeatures(false);
         UIManager.Instance.SetEventUIProcess(OnEventHome, OnEventChangeState);
 
 
+        if (TownSceneManager.Instance != null)
+        {
+            TownSceneManager.Instance.SetEventInteraction(OnEventCheckInteraction);
+        }
+
 
     }
+
+
+    private void SetFirstTownFlowTransition()
+    {
+        if (PlayerManager.Instance.UserSetting == null || PrologueManager.Instance.IsProgressing)
+        {
+            Debug.LogError("@333####");
+            return;
+        }
+
+        if (!PlayerManager.Instance.CheckMleofficeIndoorFiled())
+        {
+            Debug.LogError("@344443####");
+            return;
+        }
+
+        // 비트 캐릭터 설정
+        Model.SetTempLeaderCharacterDataId((int)CharacterDefine.CHARACTER_BEAT);
+
+        // 사무실로 씬 설정
+        var LeaderCharacterPosition = PlayerManager.Instance.UserSetting
+            .GetUserSettingData<LeaderCharacterPositionUserSetting>();
+        LeaderCharacterPosition.SetScenePath(
+            FieldMapDefine.FIELDMAP_MID_INDISTREET_MLEOFFICEINDOOR_01.ToString()
+        );
+
+
+        Debug.LogError("@####");
+
+
+        // LoadingSequenceInfo 설정
+        FlowLoadingSequenceInfo loadingSequenceInfo = new FlowLoadingSequenceInfo();
+        loadingSequenceInfo.SetAddLoadingScene(false);
+        loadingSequenceInfo.SetAfterLoadingTask(FirstTownFlowTransition);
+
+        Model.SetLoadingSequenceInfo(loadingSequenceInfo);
+    }
+
+
+    private async UniTask FirstTownFlowTransition()
+    {
+
+        Transform parent = BackgroundSceneManager.Instance.TownObjectParent.transform;
+
+      //  await LoadTownTransitionTimeline(parent);
+
+        bool isTouchScreen = false;
+
+        UIManager.Instance.ShowTouchScreen(() => { isTouchScreen = true; });
+        TransitionManager.LoadingUI(false, false);
+
+        await UniTask.WaitUntil(() => isTouchScreen);
+
+        UIManager.Instance.HideTouchScreen();
+
+        await TransitionManager.Out(TransitionType.Intro);
+
+       // await PlayTownTransitionTimeline();
+    }
+
+
 
     public override async UniTask<bool> Back()
     {
@@ -170,29 +239,41 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
 
     public override async UniTask Exit()
     {
-        Debug.Log("[NewTownFlow] Exit");
+        // TownFlow의 Exit 로직 참고하여 작성
+        QualitySettings.streamingMipmapsActive = false;
 
+        // StateMachine 정리
+        stateMachine?.Dispose();
+
+        // 타운 오브젝트 정리
+        TownObjectManager.Instance.DestroyTownObject();
+        TownObjectManager.Instance.ClearTownObjects();
+        TownObjectManager.Instance.UnloadAllTownNpcInfoGroup();
+
+        // 플레이어 정리
+        PlayerManager.Instance.CancelLeaderCharacterPosition();
+        PlayerManager.Instance.DestroyTownMyPlayerCharacter();
+        PlayerManager.Instance.DestroyTownOtherPlayer();
+
+        // 씬 언로드
+        await UtilModel.Resources.UnLoadSceneAsync(Model.CurrentScene);
+        await UtilModel.Resources.UnLoadSceneAsync(StringDefine.SCENE_TOWN);
+
+        // UI 정리
+        await UIManager.Instance.Exit(UIType.DialogPopup);
+        await UIManager.Instance.Exit(UIType.StageInfoWindow);
+        UIManager.Instance.SavePrevStackNavigator();
+        UIManager.Instance.DeleteAllUI();
+
+        // Additive Prefab 언로드
+        await AdditivePrefabManager.Instance.UnLoadAll();
+        await CameraManager.Instance.ShowBackgroundRenderTexture(false);
+
+        // 옵저버 해제
         RemoveTownObserverIds();
 
-        // State Machine 정리
-        stateMachine?.Dispose();
-        stateMachine = null;
-
-
-        await CleanUpModules();
-
-        // 정리 (서비스 사용)
-        if (townObjectService != null)
-        {
-            townObjectService.ClearTownObjects();
-        }
-
-        if (resourceService != null)
-        {
-            await resourceService.UnLoadSceneAsync(Model.CurrentScene);
-            await resourceService.UnLoadSceneAsync(StringDefine.SCENE_TOWN);
-            await resourceService.UnloadUnusedAssets(true);
-        }
+        // 메모리 해제
+        await UtilModel.Resources.UnloadUnusedAssets(true);
 
     }
 
@@ -201,6 +282,22 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
         Debug.Log("[NewTownFlow] LoadingProcess - Using Modules");
 
         Model.SetLoading(true);
+
+        // 트랜지션 타입 결정
+        TransitionType transitionType = TransitionType.Rotation;
+        if (Model.IsBattleBack)
+        {
+            transitionType = Model.BattleInfo.DungeonEndTransition;
+        }
+
+        // IntroFlow에서 온 경우가 아니면 In
+        bool isEnterFromIntroFlow = FlowManager.Instance.CheckFlow(FlowType.IntroFlow) ||
+                                    FlowManager.Instance.CheckPrevFlow(FlowType.IntroFlow);
+
+        if (!isEnterFromIntroFlow)
+        {
+            await TransitionManager.In(transitionType);
+        }
 
         try
         {
@@ -229,6 +326,17 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
         finally
         {
             Model.SetLoading(false);
+
+            if (!isEnterFromIntroFlow)
+            {
+                await TransitionManager.Out(transitionType);
+            }
+            else
+            {
+                await FirstTownFlowTransition();
+            }
+
+
         }
     }
 
@@ -240,42 +348,6 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
         Dictionary<string, object> parameters = PrepareStateParameters(flowState);
         await stateMachine.TransitionTo(flowState, parameters);
 
-    }
-
-    private async UniTask HandleBattleReturnNetwork()
-    {
-        Debug.Log("[NewTownFlow] Handling battle return network requests");
-
-        // 전투 보상 확인
-        /*BaseProcess battleRewardProcess = NetworkManager.Web.GetProcess(WebProcess.BattleRewardGet);
-
-        if (await battleRewardProcess.OnNetworkAsyncRequest())
-        {
-            battleRewardProcess.OnNetworkResponse();
-
-            BattleRewardGetResponse response = battleRewardProcess.GetResponse<BattleRewardGetResponse>();
-            if (response != null && response.data != null && response.data.HasPendingReward)
-            {
-                // 미수령 보상 처리
-                await ProcessPendingBattleRewards(response.data.Rewards);
-            }
-        }*/
-
-    }
-
-    private async UniTask ProcessPendingBattleRewards(List<Goods> rewards)
-    {
-        // 전투 보상 자동 수령
-        Debug.Log($"[NewTownFlow] Processing {rewards.Count} pending battle rewards");
-
-        foreach (var reward in rewards)
-        {
-            // 인벤토리에 추가
-           // InventoryManager.Instance.AddItem(reward);
-        }
-
-        // 보상 알림
-        MessageBoxManager.ShowToastMessage("Battle rewards received!");
     }
 
     void IObserver.HandleMessage(Enum observerMessage, IObserverParam observerParam)

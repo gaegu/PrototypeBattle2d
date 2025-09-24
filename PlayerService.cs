@@ -36,9 +36,9 @@ public class PlayerService : IPlayerService
         }
     }
 
-    public void SetMyPlayerSpawn(TownObjectType objectType, string targetId, bool isLeaderPosition)
+    public void SetMyPlayerSpawn(TownObjectType objectType, string targetId, bool isLeaderPosition, bool isUpdateTargetPosition = false)
     {
-        manager?.SetMyPlayerSpawn(objectType, targetId, isLeaderPosition);
+        manager?.SetMyPlayerSpawn(objectType, targetId, isLeaderPosition, isUpdateTargetPosition);
     }
 
     public void ResetTempLeaderCharacter()
@@ -57,11 +57,6 @@ public class PlayerService : IPlayerService
     }
 
     public UniTask DestroyTownOtherPlayer()
-    {
-        throw new System.NotImplementedException();
-    }
-
-    public void SetMyPlayerSpawn(TownObjectType objectType, string targetId, bool isLeaderPosition, bool isUpdateTargetPosition = false)
     {
         throw new System.NotImplementedException();
     }

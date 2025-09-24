@@ -14,7 +14,7 @@ public class ResourceService : IResourceService
 
     public async UniTask<Scene> LoadSceneAsync(string sceneName, LoadSceneMode mode)
     {
-        return await UtilModel.Resources.LoadSceneAsync(StringDefine.SCENE_TOWN, LoadSceneMode.Additive);
+        return await UtilModel.Resources.LoadSceneAsync(sceneName, mode);
     }
 
     public async UniTask UnLoadSceneAsync(string sceneName)
@@ -57,7 +57,7 @@ public class ResourceService : IResourceService
         var tasks = new List<UniTask<Scene>>();
         foreach (var sceneName in sceneNames)
         {
-            tasks.Add(UtilModel.Resources.LoadSceneAsync(StringDefine.SCENE_TOWN, LoadSceneMode.Additive));
+            tasks.Add(UtilModel.Resources.LoadSceneAsync(sceneName, mode));
         }
 
         await UniTask.WhenAll(tasks);
