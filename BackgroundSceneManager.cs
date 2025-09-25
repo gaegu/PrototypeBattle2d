@@ -472,9 +472,11 @@ public class BackgroundSceneManager : MonoBehaviour, IObserver
 
         townGroup.SafeSetActive(false);
 
-        Instance.baseTownObjectSupports = townGroup.transform.GetComponentsInChildren<BaseTownObjectSupport>();
-        Instance.townDecoratorFactory = townGroup.transform.GetComponentInChildren<TownDecoratorFactory>();
-
+        if (Instance != null)
+        {
+            Instance.baseTownObjectSupports = townGroup.transform.GetComponentsInChildren<BaseTownObjectSupport>();
+            Instance.townDecoratorFactory = townGroup.transform.GetComponentInChildren<TownDecoratorFactory>();
+        }
     }
 
     /// <summary>
@@ -487,7 +489,8 @@ public class BackgroundSceneManager : MonoBehaviour, IObserver
 
         IronJade.Debug.Log("Town Test : SceneSaved");
 
-        Instance.TestSceneSetting();
+
+        Instance?.TestSceneSetting();
     }
 
     /// <summary>

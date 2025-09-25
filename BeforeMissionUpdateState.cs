@@ -107,7 +107,7 @@ public class BeforeMissionUpdateState : ServicedTownStateBase
         else
         {
             // 싱글톤 폴백
-            if (BackgroundSceneManager.Instance != null && BackgroundSceneManager.Instance.CheckActiveTown())
+            if (BackgroundSceneManagerNew.Instance != null && BackgroundSceneManagerNew.Instance.CheckActiveTown())
             {
                 await TownObjectManager.Instance.RefreshProcess(true);
             }

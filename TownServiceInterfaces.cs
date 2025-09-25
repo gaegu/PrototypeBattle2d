@@ -336,8 +336,6 @@ public interface IBackgroundSceneService
     // 데코레이터
     void OperateTownDecoratorFactory();
 
-    // 시네머신
-    void SetCinemachineFollowTarget();
 
     // 컷씬
     void PlayCutsceneState(bool isShow, bool isTownCutscene);

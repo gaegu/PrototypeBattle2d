@@ -5,7 +5,7 @@ using UnityEngine;
 
 public class BackgroundSceneServiceWrapper : IBackgroundSceneService
 {
-    private BackgroundSceneManager manager => BackgroundSceneManager.Instance;
+    private BackgroundSceneManagerNew manager => BackgroundSceneManagerNew.Instance;
 
     public Transform TownObjectParent => manager?.TownObjectParent?.transform;
 
@@ -39,11 +39,6 @@ public class BackgroundSceneServiceWrapper : IBackgroundSceneService
     public void OperateTownDecoratorFactory()
     {
         manager?.OperateTownDecoratorFactory();
-    }
-
-    public void SetCinemachineFollowTarget()
-    {
-        manager?.SetCinemachineFollowTarget();
     }
 
     public void PlayCutsceneState(bool isShow, bool isTownCutscene)

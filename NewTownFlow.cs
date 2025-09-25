@@ -1,5 +1,6 @@
 // NewTownFlow.cs 수정
 using AC;
+using Cinemachine;
 using Cysharp.Threading.Tasks;
 using DG.DemiEditor;
 using IronJade.Camera.Core;
@@ -69,14 +70,7 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
         Debug.Log($"[NewTownFlow] Initialized {modules.Count} modules");
     }
 
-    private async UniTask CleanUpModules()
-    {
-        foreach (var module in modules.Values)
-        {
-            if (module != null)
-                await module.CleanUp();
-        }
-    }
+
     #endregion
 
     #region Constructors
@@ -162,56 +156,14 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
         UIManager.Instance.SetEventUIProcess(OnEventHome, OnEventChangeState);
 
 
-        if (TownSceneManager.Instance != null)
-        {
-            TownSceneManager.Instance.SetEventInteraction(OnEventCheckInteraction);
-        }
 
-
-    }
-
-
-    private void SetFirstTownFlowTransition()
-    {
-        if (PlayerManager.Instance.UserSetting == null || PrologueManager.Instance.IsProgressing)
-        {
-            Debug.LogError("@333####");
-            return;
-        }
-
-        if (!PlayerManager.Instance.CheckMleofficeIndoorFiled())
-        {
-            Debug.LogError("@344443####");
-            return;
-        }
-
-        // 비트 캐릭터 설정
-        Model.SetTempLeaderCharacterDataId((int)CharacterDefine.CHARACTER_BEAT);
-
-        // 사무실로 씬 설정
-        var LeaderCharacterPosition = PlayerManager.Instance.UserSetting
-            .GetUserSettingData<LeaderCharacterPositionUserSetting>();
-        LeaderCharacterPosition.SetScenePath(
-            FieldMapDefine.FIELDMAP_MID_INDISTREET_MLEOFFICEINDOOR_01.ToString()
-        );
-
-
-        Debug.LogError("@####");
-
-
-        // LoadingSequenceInfo 설정
-        FlowLoadingSequenceInfo loadingSequenceInfo = new FlowLoadingSequenceInfo();
-        loadingSequenceInfo.SetAddLoadingScene(false);
-        loadingSequenceInfo.SetAfterLoadingTask(FirstTownFlowTransition);
-
-        Model.SetLoadingSequenceInfo(loadingSequenceInfo);
     }
 
 
     private async UniTask FirstTownFlowTransition()
     {
 
-        Transform parent = BackgroundSceneManager.Instance.TownObjectParent.transform;
+      //  Transform parent = BackgroundSceneManager.Instance.TownObjectParent.transform;
 
       //  await LoadTownTransitionTimeline(parent);
 
@@ -613,9 +565,15 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
         if (uiType < UIType.MaxView) // View인 경우
         {
             await AdditivePrefabManager.Instance.UnLoadCloseUIAsync();
-            await BackgroundSceneManager.Instance.ChangeViewAsync(uiType, prevUIType);
-            await TownSceneManager.Instance.ChangeViewAsync(uiType, prevUIType);
-            TownObjectManager.Instance.SetConditionRoad();
+
+            if( BackgroundSceneManagerNew.Instance != null )
+                await BackgroundSceneManagerNew.Instance.ChangeViewAsync(uiType, prevUIType);
+
+            if (TownSceneManager.Instance != null)
+                await TownSceneManager.Instance.ChangeViewAsync(uiType, prevUIType);
+
+            if (TownObjectManager.Instance != null )
+                TownObjectManager.Instance.SetConditionRoad();
 
             // Dialog 종료 시 퀘스트 갱신
             if (prevUIType == UIType.DialogPopup)
@@ -625,8 +583,11 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
         }
         else // Popup인 경우
         {
-            await BackgroundSceneManager.Instance.ChangePopupAsync(uiType, prevUIType);
-            await TownSceneManager.Instance.ChangePopupAsync(uiType, prevUIType);
+            if (BackgroundSceneManagerNew.Instance != null)
+                await BackgroundSceneManagerNew.Instance.ChangePopupAsync(uiType, prevUIType);
+
+            if( TownSceneManager.Instance != null )
+                await TownSceneManager.Instance.ChangePopupAsync(uiType, prevUIType);
         }
     }
 
@@ -634,11 +595,6 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
     {
         Debug.Log($"[NewTownFlow] UI Enter Finished: {uiType}");
 
-        // 볼륨 설정
-        if (UIManager.Instance.CheckOpenUI(UIType.LobbyView))
-        {
-            ChangeVolume();
-        }
 
         TransitionType transitionType = GetEnterTransitionType(UIState.Enter, prevUIType, uiType);
 
@@ -741,7 +697,7 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
             UIManager.Instance.EnableApplicationFrame(uiType);
             await AdditivePrefabManager.Instance.UnLoadCloseUIAsync();
             CameraManager.Instance.SetAdditivePrefabCameraState(uiType);
-            await BackgroundSceneManager.Instance.ChangeViewAsync(uiType, prevUIType);
+            await BackgroundSceneManagerNew.Instance.ChangeViewAsync(uiType, prevUIType);
             await TownSceneManager.Instance.ChangeViewAsync(uiType, prevUIType);
             TownObjectManager.Instance.SetConditionRoad();
 
@@ -767,7 +723,7 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
         {
             UIManager.Instance.EnableApplicationFrame(uiType);
             await AdditivePrefabManager.Instance.UnLoadCloseUIAsync();
-            await BackgroundSceneManager.Instance.ChangePopupAsync(uiType, prevUIType);
+            await BackgroundSceneManagerNew.Instance.ChangePopupAsync(uiType, prevUIType);
             await TownSceneManager.Instance.ChangePopupAsync(uiType, prevUIType);
         }
 
@@ -783,11 +739,6 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
 
         bool isAdditiveApplication = AdditivePrefabManager.Instance.CheckUIType(AdditiveType.App, uiType);
 
-        // 볼륨 설정
-        if (UIManager.Instance.CheckOpenUI(UIType.LobbyView) || isAdditiveApplication)
-        {
-            ChangeVolume();
-        }
 
         TransitionType transitionType = GetExitTransitionType(UIState.Exit, prevUIType, uiType);
 
@@ -835,9 +786,9 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
         // 컷씬 상태 처리
         TownSceneManager.Instance.PlayCutsceneState(cutsceneParam.IsShow);
 
-        if (BackgroundSceneManager.Instance != null)
+        if (BackgroundSceneManagerNew.Instance != null)
         {
-            BackgroundSceneManager.Instance.PlayCutsceneState(
+            BackgroundSceneManagerNew.Instance.PlayCutsceneState(
                 cutsceneParam.IsShow,
                 cutsceneParam.IsTownCutscene
             );
@@ -975,108 +926,6 @@ public class NewTownFlow : BaseFlow, ITownFlow, IObserver
 
     #endregion
 
-
-#if UNITY_ANDROID || UNITY_IOS
-private async UniTask HandleMobileScreenOrientation(UIType prevUIType, UIType uiType, 
-                                                    TransitionType transitionType)
-{
-    SettingViewModeType settingViewModeType = 
-        GameSettingManager.Instance.GraphicSettingModel.GetOrientationViewModeType();
-    
-    if (GameSettingManager.Instance.GraphicSettingModel.IsHorizontalViewMode() && 
-        !DeviceRenderQuality.IsTablet)
-    {
-        if (!MissionManager.Instance.IsWait && !TutorialManager.Instance.CheckTutorialPlaying())
-        {
-            bool isAdditiveApplication = 
-                AdditivePrefabManager.Instance.CheckUIType(AdditiveType.App, uiType);
-            bool isApplicationContents = UIManager.Instance.CheckApplication(uiType);
-            bool isAdditiveStageDungeon = 
-                AdditivePrefabManager.Instance.CheckUIType(AdditiveType.StageDungeonBackground, uiType);
-            bool isAdditiveNetMining = 
-                AdditivePrefabManager.Instance.CheckUIType(AdditiveType.NetMiningProgress, uiType);
-            
-            // 휴대폰 UI는 세로모드 자유 전환
-            if (isAdditiveApplication || 
-                uiType == UIType.CharacterIntroduceView ||
-                (isApplicationContents && !isAdditiveStageDungeon && !isAdditiveNetMining))
-            {
-                Screen.autorotateToLandscapeRight = false;
-                Screen.autorotateToPortraitUpsideDown = false;
-                settingViewModeType = SettingViewModeType.Auto;
-            }
-            else
-            {
-                // 휴대폰 -> 스위핑 전환 시
-                bool isPrevAdditiveApplication = 
-                    AdditivePrefabManager.Instance.CheckUIType(AdditiveType.App, prevUIType);
-                    
-                if (isPrevAdditiveApplication && 
-                    (uiType == UIType.StageDungeonView || uiType == UIType.NetMiningView))
-                {
-                    transitionType = TransitionType.Rotation;
-                    settingViewModeType = SettingViewModeType.Horizontal;
-                }
-            }
-        }
-    }
-    
-    await TransitionManager.In(transitionType);
-    
-    if (settingViewModeType == SettingViewModeType.Auto)
-    {
-        Screen.orientation = ScreenOrientation.AutoRotation;
-    }
-    else
-    {
-        await GameSettingManager.Instance.GraphicSettingModel.TemporaryViewMode(settingViewModeType);
-    }
-}
-
-private async UniTask HandleMobileOrientationRestore(UIType prevUIType, UIType uiType)
-{
-    if (GameSettingManager.Instance.GraphicSettingModel.IsHorizontalViewMode() && 
-        !DeviceRenderQuality.IsTablet)
-    {
-        if (!MissionManager.Instance.IsWait && !TutorialManager.Instance.CheckTutorialPlaying())
-        {
-            bool isAdditiveApplication = 
-                AdditivePrefabManager.Instance.CheckUIType(AdditiveType.App, uiType);
-            
-            if (uiType == UIType.ApplicationPopup || uiType < UIType.MaxView)
-            {
-                bool isApplicationContents = UIManager.Instance.CheckApplication(uiType);
-                bool isAdditiveStageDungeon = 
-                    AdditivePrefabManager.Instance.CheckUIType(AdditiveType.StageDungeonBackground, uiType);
-                bool isAdditiveNetMining = 
-                    AdditivePrefabManager.Instance.CheckUIType(AdditiveType.NetMiningProgress, uiType);
-                
-                if (isAdditiveApplication || 
-                    uiType == UIType.CharacterIntroduceView ||
-                    (isApplicationContents && !isAdditiveStageDungeon && !isAdditiveNetMining))
-                {
-                    Screen.autorotateToLandscapeRight = false;
-                    Screen.autorotateToPortraitUpsideDown = false;
-                    Screen.orientation = ScreenOrientation.AutoRotation;
-                }
-                else
-                {
-                    await GameSettingManager.Instance.GraphicSettingModel.TemporaryViewMode(
-                        SettingViewModeType.Horizontal);
-                }
-            }
-            else if (UIManager.Instance.CheckOpenCurrentView(UIType.LobbyView) && 
-                     !isAdditiveApplication)
-            {
-                await GameSettingManager.Instance.GraphicSettingModel.TemporaryViewMode(
-                    SettingViewModeType.Horizontal);
-            }
-        }
-    }
-}
-#endif
-
-    // NewTownFlow.cs - OnEventCheckInteraction 메서드 추가
 
     #region Interaction System
 
@@ -1404,45 +1253,6 @@ private async UniTask HandleMobileOrientationRestore(UIType prevUIType, UIType u
 
     }
 
-    private async UniTask ProcessObjectInteraction(ITownSupport townObject)
-    {
-        Debug.Log($"[NewTownFlow] Processing interaction object: {townObject.EnumId}");
-
-        // 상호작용 오브젝트 처리 (예: 상자, 버튼 등)
-       /* InteractionObjectTable objTable = TableManager.Instance.GetTable<InteractionObjectTable>();
-        InteractionObjectTableData objData = objTable.GetDataByID(townObject.DataId);
-
-        if (objData.IsNull())
-        {
-            await HandleInteractionEnd();
-            return;
-        }
-
-        // 오브젝트 타입별 처리
-        InteractionObjectType objType = (InteractionObjectType)objData.GetOBJECT_TYPE();
-
-        switch (objType)
-        {
-            case InteractionObjectType.Chest:
-                await ProcessChestInteraction(objData);
-                break;
-
-            case InteractionObjectType.Lever:
-                await ProcessLeverInteraction(objData);
-                break;
-
-            case InteractionObjectType.Terminal:
-                await ProcessTerminalInteraction(objData);
-                break;
-
-            default:
-                Debug.LogWarning($"[NewTownFlow] Unknown object type: {objType}");
-                await HandleInteractionEnd();
-                break;
-        }*/
-
-    }
-
 
 
     // 자동이동 관련 메서드들
@@ -1476,35 +1286,41 @@ private async UniTask HandleMobileOrientationRestore(UIType prevUIType, UIType u
         }
     }
 
-    private void StartAutoMove(string targetId, TownObjectType targetType)
-    {
-        Debug.Log($"[NewTownFlow] Starting auto move to: {targetId}");
-
-        CharacterParam characterParam = new CharacterParam();
-        characterParam.SetAutoMoveState(CharacterAutoMoveState.Move);
-       // characterParam.SetAutoMoveTarget(targetType, targetId, 0 );
-        //characterParam.SetTargetType(targetType);
-
-        ObserverManager.NotifyObserver(CharacterObserverID.AutoMoveCharacter, characterParam);
-    }
 
     private void OnEventChangeLiveVirtualCinemachineCamera()
     {
         try
         {
             if (PlayerManager.Instance?.MyPlayer?.TownPlayer?.TownObject == null)
+            {
                 return;
+            }
 
             bool isMoveInput = PlayerManager.Instance.MyPlayer.TownPlayer.TownObject.MoveData.IsMoveInput;
             TownInputSupport townInputSupport = TownSceneManager.Instance?.TownInputSupport;
 
-            if (townInputSupport == null) return;
+            if (townInputSupport == null)
+            {
+                
+                return;
+            }
 
             // Virtual Joystick 타겟 업데이트
             townInputSupport.SetVirtualJoystickLookAtTarget(
                 CameraManager.Instance.TownCamera,
                 CameraManager.Instance.RecomposerPan
             );
+
+            if( CameraManager.Instance.GetBrainCamera().ActiveVirtualCamera != null )
+            {
+              //  CameraManager.Instance.GetBrainCamera().ActiveVirtualCamera.Follow = PlayerManager.Instance?.MyPlayer?.TownPlayer?.TownObject.Transform;
+
+                CinemachineClearShot clearShotCamera = CameraManager.Instance.GetBrainCamera().ActiveVirtualCamera as CinemachineClearShot;
+                clearShotCamera.LiveChild.Follow = PlayerManager.Instance?.MyPlayer?.TownPlayer?.TownObject.Transform;
+            }
+
+
+
         }
         catch (Exception e)
         {
@@ -1573,30 +1389,6 @@ private async UniTask HandleMobileOrientationRestore(UIType prevUIType, UIType u
         return TransitionType.None;
     }
 
-    // 볼륨 변경
-    private void ChangeVolume(bool isPrevStack = false)
-    {
-        if (isPrevStack)
-        {
-            if (UIManager.Instance.CheckOpenCurrentView(UIType.CharacterIntroduceView))
-                return;
-        }
-
-        var fieldMapTable = TableManager.Instance.GetTable<FieldMapTable>();
-        var fieldMapTableData = fieldMapTable.GetDataByID((int)Model.CurrentFiledMapDefine);
-
-        if (fieldMapTableData.IsNull())
-        {
-            CameraManager.Instance.ChangeVolumeType(VolumeType.Volume_Town_Type1_Films);
-            return;
-        }
-
-        CameraManager.Instance.ChangeVolumeType(
-            fieldMapTableData.GetSCENE_PATH(),
-            VolumeType.Volume_Town_Type1_Films
-        );
-        CameraManager.Instance.ChangeFreeLockVolume();
-    }
 
     // 튜토리얼 체크 및 실행
     private void CheckAndPlayTutorial()

@@ -1,6 +1,7 @@
 // TownLoadingModule.cs (새 파일)
 using Cysharp.Threading.Tasks;
 using IronJade.UI.Core;
+using Steamworks;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -62,7 +63,11 @@ public class TownLoadingModule : ITownLoadingModule
 
             if (resourceService != null)
             {
-                Scene scene = await resourceService.LoadSceneAsync(scenePath, LoadSceneMode.Additive);
+                //Mid_IndiStreet_BackTown_Root
+                Debug.LogError("## " + scenePath);
+
+                  //    Scene scene = await resourceService.LoadSceneAsync(scenePath +"_2D", LoadSceneMode.Additive);
+                Scene scene = await resourceService.LoadSceneAsync("Background/Mid_IndiStreet_BackTown_Root_2D", LoadSceneMode.Additive);
                 SceneManager.SetActiveScene(scene);
                 await UniTask.NextFrame();
             }
@@ -99,10 +104,10 @@ public class TownLoadingModule : ITownLoadingModule
                 await RequestInitialData(networkService);
             }
 
-            if (BackgroundSceneManager.Instance != null)
+            if (BackgroundSceneManagerNew.Instance != null)
             {
-                BackgroundSceneManager.Instance.ShowTownGroup(true);
-                BackgroundSceneManager.Instance.AddTownObjects(model.CurrentFiledMapDefine);
+                BackgroundSceneManagerNew.Instance.ShowTownGroup(true);
+                BackgroundSceneManagerNew.Instance.AddTownObjects(model.CurrentFiledMapDefine);
             }
 
 
@@ -130,10 +135,10 @@ public class TownLoadingModule : ITownLoadingModule
             }
 
 
-            if (BackgroundSceneManager.Instance != null)
+            if (BackgroundSceneManagerNew.Instance != null)
             {
-                BackgroundSceneManager.Instance.SetCinemachineFollowTarget();
-                BackgroundSceneManager.Instance.OperateTownDecoratorFactory();
+                BackgroundSceneManagerNew.Instance.OperateTownDecoratorFactory();
+
             }
 
 
@@ -142,14 +147,13 @@ public class TownLoadingModule : ITownLoadingModule
             {
                 townObjectService.LoadAllTownNpcInfoGroup();
 
-                // await townObjectService.StartProcessAsync();
+                await townObjectService.StartProcessAsync();
 
                 townObjectService.SetConditionRoad();
             }
 
             CameraManager.Instance?.SetActiveTownCameras(true);
             CameraManager.Instance?.RestoreDofTarget();
-            CameraManager.Instance?.SetLiveVirtualCamera();
 
 
             // 8. UI 초기화
@@ -176,6 +180,11 @@ public class TownLoadingModule : ITownLoadingModule
             // 15. BGM 재생
             TownSceneManager.Instance?.PlayBGM();
 
+            //기본 세팅 플레이어 
+            if (BackgroundSceneManagerNew.Instance != null)
+            {
+                BackgroundSceneManagerNew.Instance.MainCinemachineClearShot.LiveChild.Follow = PlayerManager.Instance?.MyPlayer?.TownPlayer?.TownObject.Transform;
+            }
 
             // 9. 메모리 정리
             if (resourceService != null)

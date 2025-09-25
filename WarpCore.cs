@@ -1,7 +1,6 @@
 using UnityEngine;
 
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 using UnityEngine.SceneManagement;
 
 public static class WarpCore
@@ -44,8 +43,8 @@ public static class WarpCore
         SceneManager.SetActiveScene(scene);
 
         // 배경 활성화
-        BackgroundSceneManager.Instance.ShowTownGroup(true);
-        BackgroundSceneManager.Instance.AddTownObjects(model.CurrentFiledMapDefine);
+        BackgroundSceneManagerNew.Instance.ShowTownGroup(true);
+        BackgroundSceneManagerNew.Instance.AddTownObjects(model.CurrentFiledMapDefine);
     }
 
     private static async UniTask UpdatePlayerPosition(TownFlowModel.WarpInfo warpInfo)
@@ -85,8 +84,7 @@ public static class WarpCore
         Debug.Log($"[WarpCore] Refreshing town environment");
 
         // 배경 오브젝트 갱신
-        BackgroundSceneManager.Instance.SetCinemachineFollowTarget();
-        BackgroundSceneManager.Instance.OperateTownDecoratorFactory();
+        BackgroundSceneManagerNew.Instance.OperateTownDecoratorFactory();
         TownObjectManager.Instance.OperateDecoratorFactory();
 
         await TownObjectManager.Instance.StartProcessAsync();
